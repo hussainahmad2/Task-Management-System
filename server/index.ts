@@ -4,6 +4,7 @@ import path from "path";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { storage } from "./storage";
 
 const app = express();
 const httpServer = createServer(app);
@@ -66,6 +67,7 @@ app.use((req, res, next) => {
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   log("Registering routes...");
+  await storage.seedDefaultPermissions();
   await registerRoutes(httpServer, app);
   log("Routes registered successfully");
 

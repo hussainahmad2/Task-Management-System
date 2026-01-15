@@ -9,6 +9,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { insertEmployeeSchema, insertTaskSchema } from "@shared/schema";
+import { requirePermission, requireRole } from "./middleware/rbac";
 
 // Configure Multer
 const upload = multer({
@@ -64,6 +65,40 @@ export async function registerRoutes(
     res.json({ message: "pong" });
   });
 
+  // === RBAC Routes ===
+
+  // Get current user permissions
+  app.get("/api/auth/permissions", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const permissions = await storage.getUserPermissions((req.user as any).id);
+    res.json(permissions);
+  });
+
+  // Get all available permissions (For CEO/CTO/CPO)
+  app.get("/api/permissions", requireRole(["CEO", "CTO", "CPO"]), async (req, res) => {
+    const perms = await storage.getAllPermissions();
+    res.json(perms);
+  });
+
+  // Get permissions for a specific role
+  app.get("/api/permissions/role/:role", requireRole(["CEO", "CTO", "CPO"]), async (req, res) => {
+    const perms = await storage.getRolePermissions(req.params.role);
+    res.json(perms);
+  });
+
+  // Update permissions for a role
+  app.put("/api/permissions/role/:role", requirePermission("permissions.manage"), async (req, res) => {
+    const { permissionIds } = req.body;
+    if (!Array.isArray(permissionIds)) {
+      return res.status(400).json({ message: "permissionIds must be an array" });
+    }
+
+    await storage.updateRolePermissions(req.params.role, permissionIds);
+    res.json({ message: "Permissions updated successfully" });
+  });
+
   // === 2. Register Integrations ===
 
 
@@ -116,7 +151,11 @@ export async function registerRoutes(
 
   app.post(api.employees.create.path, async (req, res) => {
     try {
-      const input = api.employees.create.input.parse(req.body);
+      console.log("\n========================================");
+      console.log("=== Employee Creation Request ===");
+      console.log("Full request body:", JSON.stringify(req.body, null, 2));
+
+      // Extract user data first (not part of employee schema)
       const userData = {
         username: req.body.username,
         password: req.body.password,
@@ -125,11 +164,55 @@ export async function registerRoutes(
         lastName: req.body.lastName,
       };
 
+      // Remove user fields from body before validation
+      const { username, password, email, firstName, lastName, ...employeeData } = req.body;
+
+      console.log("\nEmployee data BEFORE conversion:");
+      for (const [key, value] of Object.entries(employeeData)) {
+        console.log(`  ${key}: ${JSON.stringify(value)} (type: ${typeof value})`);
+      }
+
+      // Create new object with converted date (don't mutate)
+      const employeeDataWithDate = {
+        ...employeeData,
+        joiningDate: employeeData.joiningDate ? new Date(employeeData.joiningDate) : undefined
+      };
+
+      console.log("\nEmployee data AFTER conversion:");
+      for (const [key, value] of Object.entries(employeeDataWithDate)) {
+        console.log(`  ${key}: ${JSON.stringify(value)} (type: ${typeof value}) ${value instanceof Date ? '[IS DATE]' : ''}`);
+      }
+
+      console.log("\nAttempting validation...");
+      // Validate only employee schema fields
+      const input = api.employees.create.input.parse(employeeDataWithDate);
+
+      console.log("✅ Validation successful!");
+      console.log("Creating employee in database...");
+
       const emp = await storage.createEmployee({ ...input, orgId: Number(req.params.orgId) }, userData);
+      console.log("✅ Employee created! ID:", emp.id);
+      console.log("========================================\n");
+
       res.status(201).json(emp);
     } catch (err) {
-      console.error(err); // Log error for debugging
-      res.status(400).json({ message: "Invalid input" });
+      console.error("\n❌ ERROR:");
+      if (err instanceof z.ZodError) {
+        console.error("Zod Validation Errors:");
+        err.errors.forEach((error, i) => {
+          console.error(`\n  Error ${i + 1}:`);
+          console.error(`    Field: ${error.path.join('.')}`);
+          console.error(`    Message: ${error.message}`);
+          console.error(`    Expected: ${(error as any).expected}`);
+          console.error(`    Received: ${(error as any).received}`);
+        });
+        console.error("\n========================================\n");
+        res.status(400).json({ message: "Invalid input", errors: err.errors });
+      } else {
+        console.error("Error:", err);
+        console.error("========================================\n");
+        res.status(400).json({ message: err instanceof Error ? err.message : "Invalid input" });
+      }
     }
   });
 

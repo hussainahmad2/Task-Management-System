@@ -9,13 +9,17 @@ import {
   Briefcase,
   Menu,
   X,
-  Building2
+  Building2,
+  Shield,
+  Activity,
+  Server
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useTheme } from "@/hooks/use-theme";
+import { usePermissions } from "@/contexts/PermissionsContext";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -23,6 +27,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { density } = useTheme();
   const { data: orgs } = useOrganizations();
+  const { hasPermission } = usePermissions();
 
   // Simple check - in a real app we'd have a context for current org
   const activeOrg = orgs?.[0];
@@ -34,6 +39,31 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/departments", label: "Departments", icon: Building2 },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
+
+  if (hasPermission("permissions.manage")) {
+    navItems.push({ href: "/permissions", label: "Permissions", icon: Shield });
+  }
+
+  // Expanded Role Dashboards access for CEO/Superadmin
+  // This allows the CEO to quickly inspect other department dashboards
+  if (hasPermission("permissions.manage") || user?.role === "CEO") { // Using existing permission or CEO role
+    // We can use a divider or just add them
+    // Ideally we'd have a collapsible section, but for now flat list with specific prefixes
+  }
+
+  // Actually, let's just make them available if you are CEO, maybe separate section? 
+  // For simplicity given the design, I'll add them to the main nav but only for CEO.
+
+  const specializedDashboards = [
+    { href: "/dashboard/hr", label: "HR Dashboard", icon: Users },
+    { href: "/dashboard/finance", label: "Finance", icon: Building2 }, // Reusing Building2 or need DollarSign
+    { href: "/dashboard/engineering", label: "Engineering", icon: Briefcase },
+    { href: "/dashboard/operations", label: "Operations", icon: Activity },
+    { href: "/dashboard/it", label: "IT Systems", icon: Server },
+  ];
+
+  const showSpecialized = user?.role === "CEO" || user?.role === "Superadmin"; // Fallback role name logic
+
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -82,6 +112,30 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+
+            {/* Department Views for CEO */}
+            {showSpecialized && (
+              <div className="mt-6 mb-2">
+                <h4 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Department Views
+                </h4>
+                {specializedDashboards.map((item) => {
+                  const isActive = location === item.href;
+                  const Icon = item.icon;
+                  return (
+                    <Link key={item.href} href={item.href}>
+                      <div className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer group sidebar-item",
+                        isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}>
+                        <Icon className={cn("w-5 h-5", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                        {item.label}
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
           </nav>
 
           <div className="pt-4 border-t border-border">

@@ -14,6 +14,9 @@ export const taskStatus = ["todo", "in_progress", "review", "completed", "archiv
 export const taskPriority = ["low", "medium", "high", "critical"] as const;
 export const employmentType = ["full-time", "part-time", "contract", "intern"] as const;
 export const workType = ["remote", "onsite", "hybrid"] as const;
+export const permissionActions = ["create", "read", "update", "delete", "view", "manage"] as const;
+export const permissionResources = ["tasks", "employees", "departments", "settings", "analytics", "permissions", "organizations"] as const;
+
 
 // === TABLES ===
 
@@ -103,6 +106,25 @@ export const performanceMetrics = mysqlTable("performance_metrics", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Permissions - RBAC
+export const permissions = mysqlTable("permissions", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 100 }).notNull().unique(), // e.g., "tasks.create"
+  resource: varchar("resource", { length: 50, enum: permissionResources }).notNull(),
+  action: varchar("action", { length: 20, enum: permissionActions }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Role-Permission Junction
+export const rolePermissions = mysqlTable("role_permissions", {
+  id: int("id").primaryKey().autoincrement(),
+  role: varchar("role", { length: 50, enum: userRoles }).notNull(),
+  permissionId: int("permission_id").notNull().references(() => permissions.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+
 // === RELATIONS ===
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   departments: many(departments),
@@ -137,6 +159,8 @@ export const insertDepartmentSchema = createInsertSchema(departments).omit({ id:
 export const insertEmployeeSchema = createInsertSchema(employees).omit({ id: true, createdAt: true });
 export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true, actualHours: true });
 export const insertTimeLogSchema = createInsertSchema(timeLogs).omit({ id: true, createdAt: true, durationMinutes: true });
+export const insertPermissionSchema = createInsertSchema(permissions).omit({ id: true, createdAt: true });
+export const insertRolePermissionSchema = createInsertSchema(rolePermissions).omit({ id: true, createdAt: true });
 
 // === EXPLICIT TYPES ===
 export type Organization = typeof organizations.$inferSelect;
@@ -145,8 +169,12 @@ export type Employee = typeof employees.$inferSelect & { user?: typeof users.$in
 export type Task = typeof tasks.$inferSelect;
 export type TimeLog = typeof timeLogs.$inferSelect;
 export type PerformanceMetric = typeof performanceMetrics.$inferSelect;
+export type Permission = typeof permissions.$inferSelect;
+export type RolePermission = typeof rolePermissions.$inferSelect;
 
 export type CreateTaskRequest = z.infer<typeof insertTaskSchema>;
 export type UpdateTaskRequest = Partial<CreateTaskRequest>;
 export type CreateEmployeeRequest = z.infer<typeof insertEmployeeSchema>;
 export type CreateDepartmentRequest = z.infer<typeof insertDepartmentSchema>;
+export type CreatePermissionRequest = z.infer<typeof insertPermissionSchema>;
+export type CreateRolePermissionRequest = z.infer<typeof insertRolePermissionSchema>;

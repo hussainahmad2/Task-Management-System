@@ -32,12 +32,22 @@ export function useEmployee(id: number | undefined) {
   });
 }
 
+// Type for employee creation payload (includes user fields + string date)
+type EmployeeCreatePayload = Omit<CreateEmployeeRequest, 'orgId' | 'joiningDate'> & {
+  joiningDate: string; // API expects string in YYYY-MM-DD format
+  username?: string;
+  password?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+};
+
 export function useCreateEmployee() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ orgId, data }: { orgId: number; data: Omit<CreateEmployeeRequest, 'orgId'> }) => {
+    mutationFn: async ({ orgId, data }: { orgId: number; data: EmployeeCreatePayload }) => {
       const url = buildUrl(api.employees.create.path, { orgId });
       const res = await fetch(url, {
         method: api.employees.create.method,
@@ -48,6 +58,9 @@ export function useCreateEmployee() {
 
       if (!res.ok) {
         const error = await res.json();
+        if (error.errors) {
+          console.error("Zod Validation Errors:", error.errors);
+        }
         throw new Error(error.message || "Failed to create employee");
       }
       return api.employees.create.responses[201].parse(await res.json());
