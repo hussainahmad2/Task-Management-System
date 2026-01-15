@@ -1,45 +1,49 @@
 import { db } from "./db";
-import { 
+import {
   organizations, departments, employees, tasks, timeLogs, performanceMetrics,
   type Organization, type Department, type Employee, type Task, type TimeLog, type PerformanceMetric,
-  type CreateTaskRequest, type UpdateTaskRequest, type CreateEmployeeRequest
+  type CreateTaskRequest, type UpdateTaskRequest, type CreateEmployeeRequest,
+  users
 } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export interface IStorage {
   // Organizations
   createOrganization(name: string, slug: string): Promise<Organization>;
   getOrganization(id: number): Promise<Organization | undefined>;
   getAllOrganizations(): Promise<Organization[]>;
-  
+
   // Departments
   createDepartment(orgId: number, name: string): Promise<Department>;
   getDepartments(orgId: number): Promise<Department[]>;
-  
+
   // Employees
-  createEmployee(employee: CreateEmployeeRequest & { orgId: number }): Promise<Employee>;
+  createEmployee(employee: CreateEmployeeRequest & { orgId: number }, userData?: { username: string, password: string, email: string, firstName: string, lastName: string }): Promise<Employee>;
   getEmployees(orgId: number): Promise<(Employee & { user: any })[]>;
   getEmployee(id: number): Promise<(Employee & { user: any, department: any, manager: any }) | undefined>;
   getEmployeeByUserId(userId: string): Promise<Employee | undefined>;
-  
+
   // Tasks
   createTask(task: CreateTaskRequest & { orgId: number, createdById: number }): Promise<Task>;
   getTasks(orgId: number, filters?: { assigneeId?: number, status?: string, priority?: string }): Promise<(Task & { assignee: any, creator: any })[]>;
   updateTask(id: number, updates: UpdateTaskRequest): Promise<Task | undefined>;
   deleteTask(id: number): Promise<void>;
-  
+
   // Analytics
   getOrgStats(orgId: number): Promise<any>;
   getEmployeePerformance(employeeId: number): Promise<PerformanceMetric[]>;
+  updateUser(id: string, updates: any): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
   // === Organizations ===
   async createOrganization(name: string, slug: string): Promise<Organization> {
-    const [org] = await db.insert(organizations).values({ name, slug }).returning();
-    return org;
+    const [res] = await db.insert(organizations).values({ name, slug });
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, res.insertId));
+    return org!;
   }
-  
+
   async getOrganization(id: number): Promise<Organization | undefined> {
     const [org] = await db.select().from(organizations).where(eq(organizations.id, id));
     return org;
@@ -51,8 +55,9 @@ export class DatabaseStorage implements IStorage {
 
   // === Departments ===
   async createDepartment(orgId: number, name: string): Promise<Department> {
-    const [dept] = await db.insert(departments).values({ orgId, name }).returning();
-    return dept;
+    const [res] = await db.insert(departments).values({ orgId, name });
+    const [dept] = await db.select().from(departments).where(eq(departments.id, res.insertId));
+    return dept!;
   }
 
   async getDepartments(orgId: number): Promise<Department[]> {
@@ -60,9 +65,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   // === Employees ===
-  async createEmployee(employee: CreateEmployeeRequest & { orgId: number }): Promise<Employee> {
-    const [emp] = await db.insert(employees).values(employee).returning();
-    return emp;
+  // === Employees ===
+  async createEmployee(employee: CreateEmployeeRequest & { orgId: number }, userData?: { username: string, password: string, email: string, firstName: string, lastName: string }): Promise<Employee> {
+
+    let userId = employee.userId;
+
+    // If no userId provided but userData is, create the user
+    if ((!userId || userId === "temp") && userData) {
+      console.log("Creating new user for employee:", userData.username);
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      const newUserId = "user-" + Math.random().toString(36).substring(7); // Simple ID gen
+
+      await db.insert(users).values({
+        id: newUserId,
+        username: userData.username,
+        password: hashedPassword,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: employee.role as string,
+        profileImageUrl: `https://ui-avatars.com/api/?name=${userData.firstName}+${userData.lastName}`
+      });
+
+      userId = newUserId;
+    }
+
+    if (!userId) {
+      throw new Error("User ID is required to create an employee");
+    }
+
+    const [res] = await db.insert(employees).values({ ...employee, userId });
+    const [emp] = await db.select().from(employees).where(eq(employees.id, res.insertId));
+    return emp!;
   }
 
   async getEmployees(orgId: number): Promise<(Employee & { user: any })[]> {
@@ -88,7 +122,7 @@ export class DatabaseStorage implements IStorage {
       }
     });
   }
-  
+
   async getEmployeeByUserId(userId: string): Promise<Employee | undefined> {
     return await db.query.employees.findFirst({
       where: eq(employees.userId, userId),
@@ -97,16 +131,17 @@ export class DatabaseStorage implements IStorage {
 
   // === Tasks ===
   async createTask(task: CreateTaskRequest & { orgId: number, createdById: number }): Promise<Task> {
-    const [newTask] = await db.insert(tasks).values(task).returning();
-    return newTask;
+    const [res] = await db.insert(tasks).values(task);
+    const [newTask] = await db.select().from(tasks).where(eq(tasks.id, res.insertId));
+    return newTask!;
   }
 
   async getTasks(orgId: number, filters?: { assigneeId?: number, status?: string, priority?: string }): Promise<(Task & { assignee: any, creator: any })[]> {
     const conditions = [eq(tasks.orgId, orgId)];
-    
+
     if (filters?.assigneeId) conditions.push(eq(tasks.assigneeId, filters.assigneeId));
-    if (filters?.status) conditions.push(eq(tasks.status, filters.status));
-    if (filters?.priority) conditions.push(eq(tasks.priority, filters.priority));
+    if (filters?.status) conditions.push(eq(tasks.status, filters.status as any));
+    if (filters?.priority) conditions.push(eq(tasks.priority, filters.priority as any));
 
     return await db.query.tasks.findMany({
       where: and(...conditions),
@@ -119,10 +154,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTask(id: number, updates: UpdateTaskRequest): Promise<Task | undefined> {
-    const [updated] = await db.update(tasks)
+    await db.update(tasks)
       .set({ ...updates, updatedAt: new Date() })
-      .where(eq(tasks.id, id))
-      .returning();
+      .where(eq(tasks.id, id));
+
+    const [updated] = await db.select().from(tasks).where(eq(tasks.id, id));
     return updated;
   }
 
@@ -133,9 +169,9 @@ export class DatabaseStorage implements IStorage {
   // === Analytics ===
   async getOrgStats(orgId: number): Promise<any> {
     const [empCount] = await db.select({ count: sql<number>`count(*)` }).from(employees).where(eq(employees.orgId, orgId));
-    const [taskStats] = await db.select({ 
+    const [taskStats] = await db.select({
       total: sql<number>`count(*)`,
-      completed: sql<number>`count(*) filter (where status = 'completed')` 
+      completed: sql<number>`count(*) filter (where status = 'completed')`
     }).from(tasks).where(eq(tasks.orgId, orgId));
 
     // Simple completion rate
@@ -154,6 +190,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(performanceMetrics.employeeId, employeeId))
       .orderBy(desc(performanceMetrics.weekStartDate))
       .limit(12); // Last 12 weeks
+  }
+
+  async updateUser(id: string, updates: Partial<typeof users.$inferSelect>): Promise<void> {
+    await db.update(users).set(updates).where(eq(users.id, id));
   }
 }
 

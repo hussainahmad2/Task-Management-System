@@ -13,6 +13,7 @@ import { Plus, Mail, Briefcase, Phone } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { userRoles, employmentType, type CreateEmployeeRequest } from "@shared/schema";
+import { Link } from "wouter";
 
 export default function Employees() {
   const { data: orgs } = useOrganizations();
@@ -20,25 +21,52 @@ export default function Employees() {
   const { data: employees, isLoading } = useEmployees(activeOrg?.id);
   const createEmployee = useCreateEmployee();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
+
+  // Extended type for the form
+  // Extended type for the form
+  type EmployeeFormValues = Omit<CreateEmployeeRequest, "joiningDate"> & {
+    username: string;
+    password: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    joiningDate: string;
+  };
+
   // Minimal form for MVP - would map to specific schema fields in real app
-  const form = useForm({
+  const form = useForm<EmployeeFormValues>({
     defaultValues: {
-      userId: "temp", // Would be selected from users list
+      userId: "temp",
+      firstName: "",
+      lastName: "",
+      username: "",
+      password: "",
+      email: "",
       designation: "",
-      role: "Junior Employee",
+      role: "",
       joiningDate: new Date().toISOString().split('T')[0],
       employmentType: "full-time",
       salary: "50000"
     }
   });
 
-  const onSubmit = (data: any) => {
-    // In a real app, we'd have a user picker to get the userId.
-    // For now we'll simulate adding an employee record, but backend requires valid userId FK.
-    // This is UI-only code generation per instructions.
-    console.log("Create employee", data);
-    setIsDialogOpen(false);
+  const onSubmit = async (data: EmployeeFormValues) => {
+    if (!activeOrg) return;
+
+    try {
+      await createEmployee.mutateAsync({
+        orgId: activeOrg.id,
+        data: {
+          ...data,
+          joiningDate: new Date(data.joiningDate),
+          userId: "temp" // Will be ignored/replaced by backend logic
+        }
+      });
+      setIsDialogOpen(false);
+      form.reset();
+    } catch (error) {
+      console.error("Failed to create employee", error);
+    }
   };
 
   return (
@@ -59,19 +87,86 @@ export default function Employees() {
               <DialogHeader>
                 <DialogTitle>Add New Employee</DialogTitle>
               </DialogHeader>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                {/* Form fields would go here matching schema */}
-                <div className="p-4 bg-muted rounded text-sm text-muted-foreground">
-                  Form simplified for demo. Connects to backend create endpoint.
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>First Name</Label>
+                  <Input {...form.register("firstName")} required />
                 </div>
-              </form>
+                <div className="space-y-2">
+                  <Label>Last Name</Label>
+                  <Input {...form.register("lastName")} required />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input {...form.register("email")} type="email" required />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Username</Label>
+                  <Input {...form.register("username")} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Password</Label>
+                  <Input {...form.register("password")} type="password" required />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select onValueChange={(val) => form.setValue("role", val as any)} defaultValue={form.getValues("role")}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userRoles.map((role) => (
+                      <SelectItem key={role} value={role}>{role}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Designation</Label>
+                  <Input {...form.register("designation")} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Joining Date</Label>
+                  <Input {...form.register("joiningDate")} type="date" required />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Employment Type</Label>
+                  <Select onValueChange={(val) => form.setValue("employmentType", val as any)} defaultValue={form.getValues("employmentType")}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employmentType.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Salary</Label>
+                  <Input {...form.register("salary")} type="number" required />
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full">Create Employee</Button>
             </DialogContent>
           </Dialog>
         </div>
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-             {[1,2,3].map(i => <div key={i} className="h-48 bg-muted rounded-xl animate-pulse" />)}
+            {[1, 2, 3].map(i => <div key={i} className="h-48 bg-muted rounded-xl animate-pulse" />)}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -97,7 +192,7 @@ export default function Employees() {
                       {emp.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </div>
-                  
+
                   <div className="space-y-2 mt-4 pt-4 border-t border-border/50">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Briefcase className="w-4 h-4" />
@@ -108,14 +203,16 @@ export default function Employees() {
                       user@{emp.orgId}.com
                     </div>
                   </div>
-                  
+
                   <div className="mt-6">
-                    <Button variant="outline" className="w-full">View Profile</Button>
+                    <Link href={`/employees/${emp.id}`}>
+                      <Button variant="outline" className="w-full">View Profile</Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
             ))}
-            
+
             {(!employees || employees.length === 0) && (
               <div className="col-span-full py-12 text-center text-muted-foreground bg-muted/20 rounded-xl border-2 border-dashed border-border">
                 No employees found. Start by adding one.

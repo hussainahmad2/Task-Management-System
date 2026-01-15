@@ -1,29 +1,74 @@
 import type { Express } from "express";
 import type { Server } from "http";
-import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
-import { registerChatRoutes } from "./replit_integrations/chat";
-import { registerImageRoutes } from "./replit_integrations/image";
-import { registerAudioRoutes } from "./replit_integrations/audio/routes";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { setupAuth, registerAuthRoutes } from "./integrations/auth";
+
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { insertEmployeeSchema, insertTaskSchema } from "@shared/schema";
+
+// Configure Multer
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = path.join(process.cwd(), "uploads", "profile_photos");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   // === 1. Setup Auth First ===
+  console.log("Setting up auth...");
   await setupAuth(app);
+  console.log("Auth setup complete");
   registerAuthRoutes(app);
-  
+
+  // Profile Photo Upload Route
+  app.post("/api/user/profile-photo", upload.single("photo"), async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const fileUrl = `/uploads/profile_photos/${req.file.filename}`;
+
+    try {
+      // @ts-ignore
+      await storage.updateUser(req.user.id, { profileImageUrl: fileUrl });
+      res.json({ message: "Profile photo updated", imageUrl: fileUrl });
+    } catch (error) {
+      console.error("Profile upload error:", error);
+      res.status(500).json({ message: "Failed to update profile photo" });
+    }
+  });
+
+  app.get("/api/ping", (req, res) => {
+    res.json({ message: "pong" });
+  });
+
   // === 2. Register Integrations ===
-  registerChatRoutes(app);
-  registerImageRoutes(app);
-  registerAudioRoutes(app);
+
 
   // === 3. Application Routes ===
-  
+
   // Organizations
   app.get(api.organizations.list.path, async (req, res) => {
     const orgs = await storage.getAllOrganizations();
@@ -53,7 +98,7 @@ export async function registerRoutes(
       const dept = await storage.createDepartment(Number(req.params.orgId), input.name);
       res.status(201).json(dept);
     } catch (err) {
-       res.status(400).json({ message: "Invalid input" });
+      res.status(400).json({ message: "Invalid input" });
     }
   });
 
@@ -72,13 +117,22 @@ export async function registerRoutes(
   app.post(api.employees.create.path, async (req, res) => {
     try {
       const input = api.employees.create.input.parse(req.body);
-      const emp = await storage.createEmployee({ ...input, orgId: Number(req.params.orgId) });
+      const userData = {
+        username: req.body.username,
+        password: req.body.password,
+        email: req.body.email,
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+      };
+
+      const emp = await storage.createEmployee({ ...input, orgId: Number(req.params.orgId) }, userData);
       res.status(201).json(emp);
     } catch (err) {
+      console.error(err); // Log error for debugging
       res.status(400).json({ message: "Invalid input" });
     }
   });
-  
+
   // Tasks
   app.get(api.tasks.list.path, async (req, res) => {
     const filters = {
@@ -95,10 +149,10 @@ export async function registerRoutes(
       // In a real app, get createdById from authenticated user session
       // For now, we'll assume the request might send it or we default (dangerous in prod, ok for MVP demo)
       // Actually, better to look up employee by auth user id
-      
+
       const user = req.user as any;
       if (!user) return res.status(401).json({ message: "Unauthorized" });
-      
+
       const employee = await storage.getEmployeeByUserId(user.claims.sub);
       if (!employee) return res.status(403).json({ message: "User is not an employee" });
 

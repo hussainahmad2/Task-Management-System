@@ -1,20 +1,20 @@
-import { pgTable, serial, integer, text, timestamp } from "drizzle-orm/pg-core";
+import { mysqlTable, int, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
 
-export const conversations = pgTable("conversations", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+export const conversations = mysqlTable("conversations", {
+  id: int("id").primaryKey().autoincrement(),
+  title: varchar("title", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const messages = pgTable("messages", {
-  id: serial("id").primaryKey(),
-  conversationId: integer("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
-  role: text("role").notNull(),
+export const messages = mysqlTable("messages", {
+  id: int("id").primaryKey().autoincrement(),
+  conversationId: int("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  role: varchar("role", { length: 50 }).notNull(),
   content: text("content").notNull(),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertConversationSchema = createInsertSchema(conversations).omit({

@@ -16,7 +16,7 @@ export default function Landing() {
               <span className="font-display font-bold text-xl tracking-tight">Enterprise</span>
             </div>
             <div className="flex items-center gap-4">
-              <Link href="/api/login">
+              <Link href="/login">
                 <Button>Get Started <ArrowRight className="w-4 h-4 ml-2" /></Button>
               </Link>
             </div>
@@ -35,7 +35,7 @@ export default function Landing() {
               The all-in-one platform for enterprise task management, employee hierarchy, and performance analytics. Built for scale.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/api/login">
+              <Link href="/login">
                 <Button size="lg" className="h-12 px-8 text-lg rounded-full">
                   Start Free Trial
                 </Button>

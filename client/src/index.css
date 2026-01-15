@@ -105,3 +105,24 @@
 .glass-dark {
   @apply bg-black/40 backdrop-blur-md border border-white/10 shadow-xl;
 }
+
+/* Compact Mode Utilities */
+:root[data-density="compact"] {
+  --radius: 0.5rem;
+}
+
+[data-density="compact"] .sidebar-item {
+  @apply py-1.5 px-2 text-xs;
+}
+
+[data-density="compact"] .sidebar-header {
+  @apply mb-4 gap-2;
+}
+
+[data-density="compact"] .sidebar-header-icon {
+  @apply w-8 h-8 text-base;
+}
+
+[data-density="compact"] .sidebar-header-text {
+  @apply text-base;
+}

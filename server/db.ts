@@ -1,14 +1,16 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
+import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 import * as schema from "@shared/schema";
 
-const { Pool } = pg;
+export const pool = mysql.createPool({
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USERNAME || "root",
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_DATABASE || "oms",
+  port: Number(process.env.DB_PORT) || 3306,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
-}
-
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle(pool, { schema });
+export const db = drizzle(pool, { mode: "default", schema });
