@@ -38,21 +38,31 @@ export const departments = mysqlTable("departments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Roles - RBAC Role Definitions
+export const roles = mysqlTable("roles", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 50 }).notNull().unique(),
+  slug: varchar("slug", { length: 50 }).notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Employees - Links Auth User to Organization context
 export const employees = mysqlTable("employees", {
   id: int("id").primaryKey().autoincrement(),
-  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id), // Link to auth user
-  orgId: int("org_id").notNull().references(() => organizations.id),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id), // Link to auth user
+  orgId: int("org_id").references(() => organizations.id),
   departmentId: int("department_id").references(() => departments.id),
   managerId: int("manager_id"), // Self-reference for hierarchy
 
   // Profile
-  designation: varchar("designation", { length: 255 }).notNull(), // e.g. "Senior Developer"
-  role: varchar("role", { length: 50, enum: userRoles }).notNull(), // Hierarchical role
+  designation: varchar("designation", { length: 255 }), // e.g. "Senior Developer"
+  role: varchar("role", { length: 50, enum: userRoles }), // Hierarchical role (legacy string field)
+  roleId: int("role_id").notNull().references(() => roles.id), // New FK to roles table
 
   // Employment Details
-  joiningDate: date("joining_date").notNull(),
-  employmentType: varchar("employment_type", { length: 50, enum: employmentType }).notNull(),
+  joiningDate: date("joining_date"),
+  employmentType: varchar("employment_type", { length: 50, enum: employmentType }),
   workType: varchar("work_type", { length: 50, enum: workType }).default("onsite"),
   salary: decimal("salary", { precision: 10, scale: 2 }),
   isActive: boolean("is_active").default(true),
@@ -136,6 +146,7 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
   user: one(users, { fields: [employees.userId], references: [users.id] }),
   organization: one(organizations, { fields: [employees.orgId], references: [organizations.id] }),
   department: one(departments, { fields: [employees.departmentId], references: [departments.id] }),
+  roleRef: one(roles, { fields: [employees.roleId], references: [roles.id] }),
   manager: one(employees, { fields: [employees.managerId], references: [employees.id], relationName: "reportsTo" }),
   subordinates: many(employees, { relationName: "reportsTo" }),
   assignedTasks: many(tasks, { relationName: "assignedTo" }),
@@ -156,7 +167,11 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
 // === SCHEMAS ===
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true });
 export const insertDepartmentSchema = createInsertSchema(departments).omit({ id: true, createdAt: true });
-export const insertEmployeeSchema = createInsertSchema(employees).omit({ id: true, createdAt: true });
+export const insertRoleSchema = createInsertSchema(roles).omit({ id: true, createdAt: true });
+export const insertEmployeeSchema = createInsertSchema(employees, {
+  roleId: z.number().optional(),
+  userId: z.string().optional(),
+}).omit({ id: true, createdAt: true });
 export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true, actualHours: true });
 export const insertTimeLogSchema = createInsertSchema(timeLogs).omit({ id: true, createdAt: true, durationMinutes: true });
 export const insertPermissionSchema = createInsertSchema(permissions).omit({ id: true, createdAt: true });
@@ -165,7 +180,12 @@ export const insertRolePermissionSchema = createInsertSchema(rolePermissions).om
 // === EXPLICIT TYPES ===
 export type Organization = typeof organizations.$inferSelect;
 export type Department = typeof departments.$inferSelect;
-export type Employee = typeof employees.$inferSelect & { user?: typeof users.$inferSelect }; // Joined type helper
+export type Role = typeof roles.$inferSelect;
+export type Employee = typeof employees.$inferSelect & {
+  user?: typeof users.$inferSelect | null;
+  department?: typeof departments.$inferSelect | null;
+  manager?: (typeof employees.$inferSelect & { user?: typeof users.$inferSelect | null }) | null;
+}; // Joined type helper
 export type Task = typeof tasks.$inferSelect;
 export type TimeLog = typeof timeLogs.$inferSelect;
 export type PerformanceMetric = typeof performanceMetrics.$inferSelect;

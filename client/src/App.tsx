@@ -9,11 +9,12 @@ import { useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
-import { HRDashboard } from "@/components/dashboards/HRDashboard";
-import { FinanceDashboard } from "@/components/dashboards/FinanceDashboard";
-import { CTODashboard } from "@/components/dashboards/CTODashboard";
-import { GMDashboard } from "@/components/dashboards/GMDashboard";
-import { CIODashboard } from "@/components/dashboards/CIODashboard";
+import { HRDashboard } from "@/components/dashboards/hr/HRDashboard";
+import { FinanceDashboard } from "@/components/dashboards/finance/FinanceDashboard";
+import { CTODashboard } from "@/components/dashboards/executive/CTODashboard";
+import { GMDashboard } from "@/components/dashboards/executive/GMDashboard";
+import { CIODashboard } from "@/components/dashboards/executive/CIODashboard";
+import { AssistantManagerDashboard } from "@/components/dashboards/operations/AssistantManagerDashboard"; // Added if not present or just fixing imports
 import Layout from "@/components/Layout";
 import Tasks from "@/pages/Tasks";
 import Employees from "@/pages/Employees";
@@ -23,6 +24,17 @@ import Settings from "@/pages/Settings";
 import Permissions from "@/pages/Permissions";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import Recruitment from "@/pages/hr/Recruitment";
+import LeaveManagement from "@/pages/hr/LeaveManagement";
+import Payroll from "@/pages/hr/Payroll";
+import PerformanceReviews from "@/pages/hr/PerformanceReviews";
+import Policies from "@/pages/hr/Policies";
+import ProductRoadmap from "@/pages/cpo/ProductRoadmap";
+import CodeReviews from "@/pages/cto/CodeReviews";
+import Timesheet from "@/pages/employee/Timesheet";
+import MyLeaveRequests from "@/pages/employee/MyLeaveRequests";
+import MyPayroll from "@/pages/employee/MyPayroll";
+import LearningModules from "@/pages/intern/LearningModules";
 
 function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -105,6 +117,66 @@ function Router() {
           <Permissions />
         </ProtectedRoute>
       </Route>
+
+      {/* HR Management Routes */}
+      <Route path="/hr/recruitment">
+        <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
+          <Layout><Recruitment /></Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/hr/leaves">
+        <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
+          <Layout><LeaveManagement /></Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/hr/payroll">
+        <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
+          <Layout><Payroll /></Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/hr/performance">
+        <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
+          <Layout><PerformanceReviews /></Layout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/hr/policies">
+        <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
+          <Layout><Policies /></Layout>
+        </ProtectedRoute>
+      </Route>
+
+      {/* CPO Routes */}
+      <Route path="/cpo/roadmap">
+        <ProtectedRoute requiredRole={["CEO", "CPO"]}>
+          <Layout><ProductRoadmap /></Layout>
+        </ProtectedRoute>
+      </Route>
+
+      {/* CTO Routes */}
+      <Route path="/cto/reviews">
+        <ProtectedRoute requiredRole={["CEO", "CTO"]}>
+          <Layout><CodeReviews /></Layout>
+        </ProtectedRoute>
+      </Route>
+
+      {/* Employee Routes */}
+      <Route path="/employee/timesheet">
+        <PrivateRoute component={() => <Layout><Timesheet /></Layout>} />
+      </Route>
+      <Route path="/employee/leaves">
+        <PrivateRoute component={() => <Layout><MyLeaveRequests /></Layout>} />
+      </Route>
+      <Route path="/employee/payroll">
+        <PrivateRoute component={() => <Layout><MyPayroll /></Layout>} />
+      </Route>
+
+      {/* Intern Routes */}
+      <Route path="/intern/learning">
+        <ProtectedRoute requiredRole={["CEO", "HR Manager", "Intern"]}>
+          <Layout><LearningModules /></Layout>
+        </ProtectedRoute>
+      </Route>
+
       <Route component={NotFound} />
     </Switch>
   );

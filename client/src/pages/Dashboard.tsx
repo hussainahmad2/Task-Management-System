@@ -2,17 +2,17 @@ import Layout from "@/components/Layout";
 import { usePermissions } from "@/contexts/PermissionsContext";
 
 // Import Role Dashboards
-import { ExecutiveDashboard } from "@/components/dashboards/ExecutiveDashboard";
-import { CTODashboard } from "@/components/dashboards/CTODashboard";
-import { CPODashboard } from "@/components/dashboards/CPODashboard";
-import { CIODashboard } from "@/components/dashboards/CIODashboard";
-import { GMDashboard } from "@/components/dashboards/GMDashboard";
-import { HRDashboard } from "@/components/dashboards/HRDashboard";
-import { FinanceDashboard } from "@/components/dashboards/FinanceDashboard";
-import { AssistantManagerDashboard } from "@/components/dashboards/AssistantManagerDashboard";
-import { SeniorDashboard } from "@/components/dashboards/SeniorDashboard";
-import { EmployeeDashboard } from "@/components/dashboards/EmployeeDashboard";
-import { InternDashboard } from "@/components/dashboards/InternDashboard";
+import { ExecutiveDashboard } from "@/components/dashboards/executive/ExecutiveDashboard";
+import { CTODashboard } from "@/components/dashboards/executive/CTODashboard";
+import { CPODashboard } from "@/components/dashboards/executive/CPODashboard";
+import { CIODashboard } from "@/components/dashboards/executive/CIODashboard";
+import { GMDashboard } from "@/components/dashboards/executive/GMDashboard";
+import { HRDashboard } from "@/components/dashboards/hr/HRDashboard";
+import { FinanceDashboard } from "@/components/dashboards/finance/FinanceDashboard";
+import { AssistantManagerDashboard } from "@/components/dashboards/operations/AssistantManagerDashboard";
+import { SeniorDashboard } from "@/components/dashboards/employee/SeniorDashboard";
+import { EmployeeDashboard } from "@/components/dashboards/employee/EmployeeDashboard";
+import { InternDashboard } from "@/components/dashboards/employee/InternDashboard";
 
 export default function Dashboard() {
   const { hasRole, isLoading } = usePermissions();

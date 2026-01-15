@@ -151,10 +151,6 @@ export async function registerRoutes(
 
   app.post(api.employees.create.path, async (req, res) => {
     try {
-      console.log("\n========================================");
-      console.log("=== Employee Creation Request ===");
-      console.log("Full request body:", JSON.stringify(req.body, null, 2));
-
       // Extract user data first (not part of employee schema)
       const userData = {
         username: req.body.username,
@@ -167,50 +163,22 @@ export async function registerRoutes(
       // Remove user fields from body before validation
       const { username, password, email, firstName, lastName, ...employeeData } = req.body;
 
-      console.log("\nEmployee data BEFORE conversion:");
-      for (const [key, value] of Object.entries(employeeData)) {
-        console.log(`  ${key}: ${JSON.stringify(value)} (type: ${typeof value})`);
-      }
-
       // Create new object with converted date (don't mutate)
       const employeeDataWithDate = {
         ...employeeData,
         joiningDate: employeeData.joiningDate ? new Date(employeeData.joiningDate) : undefined
       };
 
-      console.log("\nEmployee data AFTER conversion:");
-      for (const [key, value] of Object.entries(employeeDataWithDate)) {
-        console.log(`  ${key}: ${JSON.stringify(value)} (type: ${typeof value}) ${value instanceof Date ? '[IS DATE]' : ''}`);
-      }
-
-      console.log("\nAttempting validation...");
       // Validate only employee schema fields
       const input = api.employees.create.input.parse(employeeDataWithDate);
 
-      console.log("✅ Validation successful!");
-      console.log("Creating employee in database...");
-
-      const emp = await storage.createEmployee({ ...input, orgId: Number(req.params.orgId) }, userData);
-      console.log("✅ Employee created! ID:", emp.id);
-      console.log("========================================\n");
+      const emp = await storage.createEmployee({ ...input, orgId: Number(req.params.orgId) } as any, userData);
 
       res.status(201).json(emp);
     } catch (err) {
-      console.error("\n❌ ERROR:");
       if (err instanceof z.ZodError) {
-        console.error("Zod Validation Errors:");
-        err.errors.forEach((error, i) => {
-          console.error(`\n  Error ${i + 1}:`);
-          console.error(`    Field: ${error.path.join('.')}`);
-          console.error(`    Message: ${error.message}`);
-          console.error(`    Expected: ${(error as any).expected}`);
-          console.error(`    Received: ${(error as any).received}`);
-        });
-        console.error("\n========================================\n");
         res.status(400).json({ message: "Invalid input", errors: err.errors });
       } else {
-        console.error("Error:", err);
-        console.error("========================================\n");
         res.status(400).json({ message: err instanceof Error ? err.message : "Invalid input" });
       }
     }

@@ -1,0 +1,14 @@
+{
+    "name": "oms-scripts",
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+        "analyze-db": "tsx scripts/analyze-database.ts"
+    },
+    "dependencies": {
+        "dotenv": "^16.0.0"
+    },
+    "devDependencies": {
+        "tsx": "^4.7.0"
+    }
+}

@@ -58,9 +58,6 @@ export function useCreateEmployee() {
 
       if (!res.ok) {
         const error = await res.json();
-        if (error.errors) {
-          console.error("Zod Validation Errors:", error.errors);
-        }
         throw new Error(error.message || "Failed to create employee");
       }
       return api.employees.create.responses[201].parse(await res.json());

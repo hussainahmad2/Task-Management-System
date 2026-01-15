@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { 
-  insertTaskSchema, 
-  insertEmployeeSchema, 
-  insertOrganizationSchema, 
+import {
+  insertTaskSchema,
+  insertEmployeeSchema,
+  insertOrganizationSchema,
   insertDepartmentSchema,
   insertTimeLogSchema,
   tasks,
@@ -50,7 +50,7 @@ export const api = {
       }
     }
   },
-  
+
   departments: {
     list: {
       method: 'GET' as const,
@@ -89,7 +89,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/organizations/:orgId/employees',
-      input: insertEmployeeSchema.omit({ orgId: true }),
+      input: insertEmployeeSchema.omit({ orgId: true, userId: true, roleId: true }),
       responses: {
         201: z.custom<typeof employees.$inferSelect>(),
         400: errorSchemas.validation,

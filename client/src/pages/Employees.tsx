@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Link } from "wouter";
 import Layout from "@/components/Layout";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useEmployees, useCreateEmployee } from "@/hooks/use-employees";
@@ -9,9 +11,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react"; // Added missing import
-import { useToast } from "@/hooks/use-toast"; // Added missing import
-import { Plus, Mail, LayoutGrid, List as ListIcon, Kanban, Briefcase } from "lucide-react"; // consolidated icons
+import { LayoutGrid, List as ListIcon, Kanban, Plus, Mail, Briefcase } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -55,7 +65,7 @@ export default function Employees() {
       designation: "Software Engineer",
       joiningDate: new Date().toISOString().split('T')[0],
       employmentType: "full-time",
-      salary: 50000,
+      salary: "50000",
       isActive: true,
       orgId: activeOrg?.id || 1,
     },
@@ -63,8 +73,11 @@ export default function Employees() {
 
   const onSubmit = (data: EmployeeFormValues) => {
     createEmployee.mutate({
-      ...data,
-      // The hook handles the payload transformation
+      orgId: activeOrg?.id || 1,
+      data: {
+        ...data,
+        // Ensure salary is handled as string/decimal from form
+      }
     }, {
       onSuccess: () => {
         setIsDialogOpen(false);
@@ -94,7 +107,7 @@ export default function Employees() {
 
   return (
     <Layout>
-      <div className="space-y-8">
+      <div className="space-y-8 animate-in fade-in duration-500">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 className="text-3xl font-display font-bold tracking-tight">Employees</h2>
@@ -121,7 +134,6 @@ export default function Employees() {
                   <DialogTitle>Add New Employee</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  {/* ... specific form fields ... */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>First Name</Label>
@@ -244,12 +256,6 @@ export default function Employees() {
                           user@{emp.orgId}.com
                         </div>
                       </div>
-
-                      <div className="mt-6">
-                        <Link href={`/employees/${emp.id}`}>
-                          <Button variant="outline" className="w-full">View Profile</Button>
-                        </Link>
-                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -290,9 +296,7 @@ export default function Employees() {
                         </TableCell>
                         <TableCell>{new Date(emp.joiningDate).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
-                          <Link href={`/employees/${emp.id}`}>
-                            <Button variant="ghost" size="sm">View</Button>
-                          </Link>
+                          <Button variant="ghost" size="sm">View</Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -323,9 +327,7 @@ export default function Employees() {
                                 <p className="text-xs text-muted-foreground">{emp.designation}</p>
                               </div>
                             </div>
-                            <Link href={`/employees/${emp.id}`}>
-                              <Button variant="outline" size="sm" className="w-full text-xs h-7">View Profile</Button>
-                            </Link>
+                            <Button variant="outline" size="sm" className="w-full text-xs h-7">View Profile</Button>
                           </CardContent>
                         </Card>
                       ))}
@@ -346,4 +348,3 @@ export default function Employees() {
     </Layout>
   );
 }
-

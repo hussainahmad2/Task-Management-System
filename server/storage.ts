@@ -19,7 +19,7 @@ export interface IStorage {
   getDepartments(orgId: number): Promise<Department[]>;
 
   // Employees
-  createEmployee(employee: CreateEmployeeRequest & { orgId: number }, userData?: { username: string, password: string, email: string, firstName: string, lastName: string }): Promise<Employee>;
+  createEmployee(employee: Omit<CreateEmployeeRequest, 'userId'> & { orgId: number, userId?: string }, userData?: { username: string, password: string, email: string, firstName: string, lastName: string }): Promise<Employee>;
   getEmployees(orgId: number): Promise<(Employee & { user: any })[]>;
   getEmployee(id: number): Promise<(Employee & { user: any, department: any, manager: any }) | undefined>;
   getEmployeeByUserId(userId: string): Promise<Employee | undefined>;
@@ -73,13 +73,12 @@ export class DatabaseStorage implements IStorage {
 
   // === Employees ===
   // === Employees ===
-  async createEmployee(employee: CreateEmployeeRequest & { orgId: number }, userData?: { username: string, password: string, email: string, firstName: string, lastName: string }): Promise<Employee> {
+  async createEmployee(employee: Omit<CreateEmployeeRequest, 'userId'> & { orgId: number, userId?: string }, userData?: { username: string, password: string, email: string, firstName: string, lastName: string }): Promise<Employee> {
 
     let userId = employee.userId;
 
     // If no userId provided but userData is, create the user
     if ((!userId || userId === "temp") && userData) {
-      console.log("Creating new user for employee:", userData.username);
       const hashedPassword = await bcrypt.hash(userData.password, 10);
       const newUserId = "user-" + Math.random().toString(36).substring(7); // Simple ID gen
 
@@ -101,7 +100,26 @@ export class DatabaseStorage implements IStorage {
       throw new Error("User ID is required to create an employee");
     }
 
-    const [res] = await db.insert(employees).values({ ...employee, userId });
+    // Lookup roleId from roles table if not provided
+    let roleId = (employee as any).roleId;
+    if (!roleId && employee.role) {
+      // Import roles table
+      const { roles } = await import("@shared/schema");
+      const roleSlug = employee.role.toLowerCase().replace(/\s+/g, '_');
+
+      const [roleRecord] = await db.select().from(roles).where(eq(roles.slug, roleSlug));
+
+      if (!roleRecord) {
+        throw new Error(`Role "${employee.role}" not found in roles table. Please ensure the role exists.`);
+      }
+      roleId = roleRecord.id;
+    }
+
+    if (!roleId) {
+      throw new Error("Role ID is required to create an employee");
+    }
+
+    const [res] = await db.insert(employees).values({ ...employee, userId, roleId });
     const [emp] = await db.select().from(employees).where(eq(employees.id, res.insertId));
     return emp!;
   }
@@ -208,7 +226,7 @@ export class DatabaseStorage implements IStorage {
   async getUserPermissions(userId: string): Promise<string[]> {
     // 1. Get user to find their role
     const employee = await this.getEmployeeByUserId(userId);
-    if (!employee) return [];
+    if (!employee || !employee.role) return [];
 
     // 2. Get permissions for that role
     const rolePerms = await db.select({
@@ -216,7 +234,7 @@ export class DatabaseStorage implements IStorage {
     })
       .from(rolePermissions)
       .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
-      .where(eq(rolePermissions.role, employee.role));
+      .where(eq(rolePermissions.role, employee.role as any));
 
     return rolePerms.map(p => p.permissionName);
   }

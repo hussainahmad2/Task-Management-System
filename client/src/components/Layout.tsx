@@ -12,7 +12,17 @@ import {
   Building2,
   Shield,
   Activity,
-  Server
+  Server,
+  UserPlus,
+  Calendar,
+  DollarSign,
+  FileText,
+  Star,
+  ClipboardList,
+  Target,
+  GitBranch,
+  Clock,
+  BookOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -32,13 +42,82 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // Simple check - in a real app we'd have a context for current org
   const activeOrg = orgs?.[0];
 
-  const navItems = [
+  // Check user role for role-specific navigation
+  const userRole = user?.role || "";
+  const isHRManager = userRole === "HR Manager" || userRole === "hr_manager";
+  const isCPO = userRole === "CPO";
+  const isCTO = userRole === "CTO";
+  const isEmployee = userRole === "Senior Employee" || userRole === "Junior Employee";
+  const isIntern = userRole === "Intern";
+  
+  // HR-specific navigation items
+  const hrNavItems = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/hr/recruitment", label: "Recruitment", icon: UserPlus },
+    { href: "/hr/leaves", label: "Leave Management", icon: Calendar },
+    { href: "/hr/payroll", label: "Payroll", icon: DollarSign },
+    { href: "/hr/performance", label: "Performance Reviews", icon: Star },
+    { href: "/hr/policies", label: "Policies", icon: FileText },
+    { href: "/employees", label: "Employees", icon: Users },
+    { href: "/departments", label: "Departments", icon: Building2 },
+    { href: "/tasks", label: "Tasks", icon: CheckSquare },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  // CPO-specific navigation items
+  const cpoNavItems = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/cpo/roadmap", label: "Product Roadmap", icon: Target },
+    { href: "/tasks", label: "Tasks", icon: CheckSquare },
+    { href: "/employees", label: "Team", icon: Users },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  // CTO-specific navigation items
+  const ctoNavItems = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/cto/reviews", label: "Code Reviews", icon: GitBranch },
+    { href: "/tasks", label: "Tasks", icon: CheckSquare },
+    { href: "/employees", label: "Team", icon: Users },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  // Employee-specific navigation items
+  const employeeNavItems = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/employee/timesheet", label: "Timesheet", icon: Clock },
+    { href: "/employee/leaves", label: "My Leaves", icon: Calendar },
+    { href: "/employee/payroll", label: "My Payroll", icon: DollarSign },
+    { href: "/tasks", label: "Tasks", icon: CheckSquare },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  // Intern-specific navigation items
+  const internNavItems = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/intern/learning", label: "Learning Modules", icon: BookOpen },
+    { href: "/employee/timesheet", label: "Timesheet", icon: Clock },
+    { href: "/employee/leaves", label: "My Leaves", icon: Calendar },
+    { href: "/tasks", label: "Tasks", icon: CheckSquare },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  // Default navigation items for other roles
+  const defaultNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/tasks", label: "Tasks", icon: CheckSquare },
     { href: "/employees", label: "Employees", icon: Users },
     { href: "/departments", label: "Departments", icon: Building2 },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
+
+  // Determine which nav items to use based on role
+  let navItems = defaultNavItems;
+  if (isHRManager) navItems = hrNavItems;
+  else if (isCPO) navItems = cpoNavItems;
+  else if (isCTO) navItems = ctoNavItems;
+  else if (isEmployee) navItems = employeeNavItems;
+  else if (isIntern) navItems = internNavItems;
 
   if (hasPermission("permissions.manage")) {
     navItems.push({ href: "/permissions", label: "Permissions", icon: Shield });
