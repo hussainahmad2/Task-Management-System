@@ -8,6 +8,9 @@ type MessageType =
   | 'call_accepted'
   | 'call_rejected'
   | 'call_ended'
+  | 'call_offer'
+  | 'call_answer'
+  | 'ice_candidate'
   | 'meeting_scheduled'
   | 'meeting_updated'
   | 'meeting_cancelled'
@@ -15,7 +18,13 @@ type MessageType =
   | 'user_online'
   | 'user_offline'
   | 'ping'
-  | 'pong';
+  | 'pong'
+  | 'auth'
+  | 'auth_success'
+  | 'connected'
+  | 'subscribed'
+  | 'subscribe'
+  | 'unsubscribe';
 
 interface WebSocketMessage {
   type: MessageType;
@@ -27,24 +36,55 @@ class WebSocketService {
   private ws: WebSocket | null = null;
   private listeners: Map<string, ((data: any) => void)[]> = new Map();
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private maxReconnectAttempts = 3;
   private reconnectInterval = 5000;
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private heartbeatTimeout: NodeJS.Timeout | null = null;
   private url: string;
+  private isConnecting = false;
+  private connectionFailed = false;
 
   constructor(url: string) {
     this.url = url;
   }
 
   connect(): Promise<void> {
+    // Prevent multiple simultaneous connection attempts
+    if (this.isConnecting) {
+      return Promise.reject(new Error('Connection already in progress'));
+    }
+    
+    // If we already failed, don't keep trying
+    if (this.connectionFailed) {
+      return Promise.resolve(); // Silently resolve - messaging will work without WebSocket
+    }
+    
+    // If already connected, resolve immediately
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      return Promise.resolve();
+    }
+    
+    this.isConnecting = true;
+    
     return new Promise((resolve, reject) => {
       try {
         this.ws = new WebSocket(this.url);
 
+        const timeout = setTimeout(() => {
+          this.isConnecting = false;
+          this.connectionFailed = true;
+          if (this.ws) {
+            this.ws.close();
+          }
+          resolve(); // Don't reject - just continue without WebSocket
+        }, 5000);
+
         this.ws.onopen = () => {
+          clearTimeout(timeout);
           console.log('WebSocket connected');
+          this.isConnecting = false;
           this.reconnectAttempts = 0;
+          this.connectionFailed = false;
           this.startHeartbeat();
           resolve();
         };
@@ -59,18 +99,28 @@ class WebSocketService {
         };
 
         this.ws.onclose = () => {
+          clearTimeout(timeout);
           console.log('WebSocket disconnected');
+          this.isConnecting = false;
           this.stopHeartbeat();
-          this.attemptReconnect();
+          // Only attempt reconnect if we previously had a successful connection
+          if (!this.connectionFailed && this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.attemptReconnect();
+          }
         };
 
         this.ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          reject(error);
+          clearTimeout(timeout);
+          console.warn('WebSocket connection failed - messaging will work without real-time updates');
+          this.isConnecting = false;
+          this.connectionFailed = true;
+          resolve(); // Don't reject - continue without WebSocket
         };
       } catch (error) {
-        console.error('Failed to create WebSocket connection:', error);
-        reject(error);
+        console.warn('Failed to create WebSocket connection:', error);
+        this.isConnecting = false;
+        this.connectionFailed = true;
+        resolve(); // Don't reject - continue without WebSocket
       }
     });
   }
@@ -160,6 +210,18 @@ class WebSocketService {
   }
 
   // Convenience methods for common events
+  authenticate(userId: string) {
+    this.send('auth', { userId });
+  }
+
+  subscribeToRoom(chatRoomId: string) {
+    this.send('subscribe', { chatRoomId });
+  }
+
+  unsubscribeFromRoom(chatRoomId: string) {
+    this.send('unsubscribe', { chatRoomId });
+  }
+
   sendMessage(content: string, chatRoomId: string, senderId: string, messageType: 'text' | 'image' | 'video' | 'audio' | 'document' | 'sticker' | 'location' | 'contact' = 'text', mediaUrl?: string) {
     this.send('message', {
       content,
@@ -175,23 +237,54 @@ class WebSocketService {
     this.send('call_initiated', {
       callerId,
       calleeId,
+      targetUserId: calleeId,
       callType,
       chatRoomId,
       timestamp: new Date(),
     });
   }
 
-  sendCallResponse(callId: string, accepted: boolean) {
+  sendCallResponse(callId: string, accepted: boolean, targetUserId?: string) {
     this.send(accepted ? 'call_accepted' : 'call_rejected', {
       callId,
+      targetUserId,
       timestamp: new Date(),
     });
   }
 
-  sendCallEnded(callId: string, duration?: number) {
+  sendCallEnded(callId: string, targetUserId?: string, duration?: number) {
     this.send('call_ended', {
       callId,
+      targetUserId,
       duration,
+      timestamp: new Date(),
+    });
+  }
+
+  // WebRTC Signaling for voice/video calls
+  sendCallOffer(targetUserId: string, offer: RTCSessionDescriptionInit, chatRoomId?: string) {
+    this.send('call_offer', {
+      targetUserId,
+      offer,
+      chatRoomId,
+      timestamp: new Date(),
+    });
+  }
+
+  sendCallAnswer(targetUserId: string, answer: RTCSessionDescriptionInit, chatRoomId?: string) {
+    this.send('call_answer', {
+      targetUserId,
+      answer,
+      chatRoomId,
+      timestamp: new Date(),
+    });
+  }
+
+  sendIceCandidate(targetUserId: string, candidate: RTCIceCandidate, chatRoomId?: string) {
+    this.send('ice_candidate', {
+      targetUserId,
+      candidate,
+      chatRoomId,
       timestamp: new Date(),
     });
   }
@@ -234,13 +327,33 @@ class WebSocketService {
     }
   }
 
+  // Reset connection state to allow retry
+  reset() {
+    this.disconnect();
+    this.connectionFailed = false;
+    this.isConnecting = false;
+    this.reconnectAttempts = 0;
+  }
+
   isConnected(): boolean {
     return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
   }
+
+  // Get connection status for debugging
+  getStatus() {
+    return {
+      connected: this.isConnected(),
+      connecting: this.isConnecting,
+      failed: this.connectionFailed,
+      reconnectAttempts: this.reconnectAttempts,
+      url: this.url
+    };
+  }
 }
 
-// Create a singleton instance
-const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
+// Create a singleton instance - use same host/port as the app
+const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsUrl = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}/ws`;
 export const websocketService = new WebSocketService(wsUrl);
 
 // Export types for convenience

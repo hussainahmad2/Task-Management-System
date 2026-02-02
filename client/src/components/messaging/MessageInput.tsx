@@ -71,19 +71,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-2 rounded-full hover:bg-gradient-to-br from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 text-yellow-600 dark:text-yellow-300 transition-all duration-300 transform hover:scale-110 hover:rotate-12 shadow-md hover:shadow-lg"
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
             disabled={disabled}
           >
-            <span className="text-2xl drop-shadow-sm">😊</span>
+            <span className="text-xl">😊</span>
           </button>
           
           <button
             type="button"
             onClick={() => setShowStickerPanel(!showStickerPanel)}
-            className="p-2 rounded-full hover:bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-600 dark:text-purple-300 transition-all duration-300 transform hover:scale-110 hover:-rotate-12 shadow-md hover:shadow-lg"
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
             disabled={disabled}
           >
-            <span className="text-2xl drop-shadow-sm">🔥</span>
+            <span className="text-xl">🔥</span>
           </button>
         </div>
         
@@ -93,19 +93,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder={placeholder}
-            className="w-full px-4 py-2 rounded-full border-2 border-gradient-to-r from-purple-300 to-pink-300 dark:from-purple-600 dark:to-pink-600 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-4 focus:ring-purple-500/40 focus:border-transparent transition-all duration-300 shadow-md hover:shadow-lg"
+            className="w-full px-4 py-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             disabled={disabled}
           />
           
           {showEmojiPicker && (
-            <div className="absolute bottom-full mb-2 left-0 w-72 h-56 bg-gradient-to-br from-white to-purple-50 dark:from-gray-800 dark:to-gray-900 border-2 border-purple-200 dark:border-purple-700 rounded-xl shadow-2xl p-3 z-10 backdrop-blur-sm">
+            <div className="absolute bottom-full mb-2 left-0 w-72 h-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-3 z-10">
               <div className="grid grid-cols-8 gap-2">
                 {['😀', '😂', '🥰', '😎', '🤩', '😍', '🤗', '🤔', '🥳', '🤪', '😇', '🥸', '🤓', '🧐', '🥹', '🥺'].map((emoji) => (
                   <button
                     key={emoji}
                     type="button"
                     onClick={() => handleEmojiClick(emoji)}
-                    className="text-2xl hover:bg-gradient-to-br from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-lg p-2 transition-all duration-200 transform hover:scale-125 hover:rotate-12 shadow-md"
+                    className="text-2xl hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-2 transition-colors"
                   >
                     {emoji}
                   </button>
@@ -115,14 +115,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           )}
                     
           {showStickerPanel && (
-            <div className="absolute bottom-full mb-2 left-0 w-72 h-56 bg-gradient-to-br from-white to-pink-50 dark:from-gray-800 dark:to-gray-900 border-2 border-pink-200 dark:border-pink-700 rounded-xl shadow-2xl p-3 z-10 backdrop-blur-sm">
+            <div className="absolute bottom-full mb-2 left-0 w-72 h-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-3 z-10">
               <div className="grid grid-cols-4 gap-3">
                 {['🔥', '🚀', '💯', '🎯', '✨', '🎉', '🎊', '🎁'].map((sticker, index) => (
                   <button
                     key={index}
                     type="button"
                     onClick={() => handleStickerClick(`sticker-${index}`)}
-                    className="text-3xl hover:bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg p-3 transition-all duration-200 transform hover:scale-125 hover:rotate-12 shadow-md"
+                    className="text-3xl hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-3 transition-colors"
                   >
                     {sticker}
                   </button>
@@ -135,9 +135,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         <button
           type="submit"
           disabled={!inputValue.trim() || disabled}
-          className={`p-2 rounded-full transition-all duration-300 transform hover:scale-110 ${
+          className={`p-2 rounded-full transition-colors ${
             inputValue.trim()
-              ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 shadow-xl hover:shadow-2xl animate-pulse'
+              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
           }`}
         >

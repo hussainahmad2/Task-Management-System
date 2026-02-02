@@ -4,6 +4,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { setupAuth, registerAuthRoutes } from "./integrations/auth";
+import { wsManager } from "./websocket-manager";
 
 import { storage } from "./storage";
 import { api } from "@shared/routes";
@@ -39,6 +40,11 @@ export async function registerRoutes(
   console.log("Auth setup complete");
   registerAuthRoutes(app);
 
+  // === 2. Setup WebSocket Server ===
+  console.log("Setting up WebSocket server...");
+  wsManager.attachToServer(httpServer);
+  console.log("WebSocket server setup complete");
+
   // Profile Photo Upload Route
   app.post("/api/user/profile-photo", upload.single("photo"), async (req, res) => {
     if (!req.isAuthenticated() || !req.user) {
@@ -63,6 +69,11 @@ export async function registerRoutes(
 
   app.get("/api/ping", (req, res) => {
     res.json({ message: "pong" });
+  });
+
+  // WebSocket status endpoint for monitoring
+  app.get("/api/ws/stats", (req, res) => {
+    res.json(wsManager.getStats());
   });
 
   // Get all users (for messaging)
@@ -156,13 +167,26 @@ export async function registerRoutes(
   app.post("/api/messaging/messages", async (req, res) => {
     try {
       const { chatRoomId, content, messageType, mediaUrl } = req.body;
+      const senderId = (req.user as any)?.id || 'unknown';
       const newMessage = await storage.createMessage({
         chatRoomId,
-        senderId: (req.user as any)?.id || 'unknown',
+        senderId,
         content,
         messageType,
         mediaUrl
       });
+      
+      // Broadcast to all clients in the chat room
+      wsManager.broadcastToRoom(String(chatRoomId), {
+        type: "message",
+        payload: {
+          ...newMessage,
+          chatRoomId: String(chatRoomId),
+          senderId,
+          createdAt: new Date().toISOString()
+        }
+      });
+      
       res.status(201).json(newMessage);
     } catch (error) {
       console.error("Error sending message:", error);

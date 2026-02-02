@@ -284,14 +284,24 @@ export class DatabaseStorage implements IStorage {
 
   async createChatRoom(data: { name: string; type: string; description?: string; createdBy: string }): Promise<any> {
     try {
-      await db.insert(chatRooms).values({
+      const result = await db.insert(chatRooms).values({
         name: data.name,
         type: data.type as any,
         description: data.description,
         createdById: data.createdBy
       });
-      // Return a simple success response
-      return { id: Date.now().toString(), name: data.name, type: data.type };
+      
+      // Get the last inserted ID from MySQL response
+      const insertedId = (result as any)?.[0]?.insertId || (result as any)?.[1]?.[0]?.insertId;
+      if (insertedId) {
+        return { id: insertedId, name: data.name, type: data.type };
+      }
+      
+      // Fallback: query the most recently created room
+      const [newRoom] = await db.select().from(chatRooms)
+        .orderBy(sql`id DESC`)
+        .limit(1);
+      return newRoom || { id: 0, name: data.name, type: data.type };
     } catch (error) {
       console.error("Error creating chat room:", error);
       throw error;
@@ -340,16 +350,33 @@ export class DatabaseStorage implements IStorage {
 
   async createMessage(data: { chatRoomId: string; senderId: string; content: string; messageType: string; mediaUrl?: string }): Promise<any> {
     try {
-      await db.insert(messages).values({
+      const result = await db.insert(messages).values({
         chatRoomId: Number(data.chatRoomId),
         senderId: data.senderId,
         content: data.content,
         messageType: data.messageType as any,
         mediaUrl: data.mediaUrl
       });
-      // Return a simple success response
-      return { 
-        id: Date.now().toString(), 
+      
+      // Get the last inserted ID from MySQL response
+      const insertedId = (result as any)?.[0]?.insertId || (result as any)?.[1]?.[0]?.insertId;
+      if (insertedId) {
+        return { 
+          id: insertedId, 
+          chatRoomId: data.chatRoomId, 
+          senderId: data.senderId, 
+          content: data.content,
+          messageType: data.messageType
+        };
+      }
+      
+      // Fallback: query the most recently created message
+      const [newMessage] = await db.select().from(messages)
+        .where(eq(messages.chatRoomId, Number(data.chatRoomId)))
+        .orderBy(sql`id DESC`)
+        .limit(1);
+      return newMessage || { 
+        id: 0, 
         chatRoomId: data.chatRoomId, 
         senderId: data.senderId, 
         content: data.content,
@@ -706,3 +733,5 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+
+

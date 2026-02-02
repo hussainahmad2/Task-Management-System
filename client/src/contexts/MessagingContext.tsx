@@ -129,10 +129,23 @@ const messagingReducer = (state: MessagingState, action: MessagingAction): Messa
         },
       };
     case 'ADD_MESSAGE':
+      // Check if message already exists to prevent duplicates
+      const existingMessages = state.messages[action.payload.chatRoomId] || [];
+      const messageExists = existingMessages.some(
+        (msg: Message) => msg.id === action.payload.id || 
+          (msg.content === action.payload.content && 
+           msg.senderId === action.payload.senderId &&
+           Math.abs(new Date(msg.createdAt || 0).getTime() - new Date(action.payload.createdAt || 0).getTime()) < 5000)
+      );
+      
+      if (messageExists) {
+        return state;
+      }
+      
       const updatedMessages = {
         ...state.messages,
         [action.payload.chatRoomId]: [
-          ...(state.messages[action.payload.chatRoomId] || []),
+          ...existingMessages,
           action.payload,
         ],
       };
@@ -285,16 +298,24 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children, 
     try {
       dispatch({ type: 'SET_CONNECTING', payload: true });
       
-      // Connect to WebSocket
-      await websocketService.connect();
+      // Try to connect to WebSocket (non-blocking - messaging works without it)
+      try {
+        await websocketService.connect();
+        // Authenticate with user ID if connected
+        if (state.currentUser && websocketService.isConnected()) {
+          websocketService.authenticate(state.currentUser);
+        }
+      } catch (wsError) {
+        console.warn('WebSocket unavailable - messaging will work without real-time updates');
+      }
       
-      // Fetch initial data
+      // Fetch initial data - this is required
       const [chatRooms, calls, meetings, contacts, stickerPacks] = await Promise.all([
-        chatRoomsApi.getAll(),
-        callsApi.getAll(),
-        meetingsApi.getAll(),
-        contactsApi.getAll(),
-        stickersApi.getPacks(),
+        chatRoomsApi.getAll().catch(() => []),
+        callsApi.getAll().catch(() => []),
+        meetingsApi.getAll().catch(() => []),
+        contactsApi.getAll().catch(() => []),
+        stickersApi.getPacks().catch(() => []),
       ]);
       
       dispatch({ type: 'SET_CHAT_ROOMS', payload: chatRooms });
@@ -378,7 +399,7 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children, 
     }
   }, [state.isInitialized]);
 
-  // Load messages for active chat room
+  // Load messages for active chat room and subscribe to WebSocket
   useEffect(() => {
     if (state.activeChatRoom) {
       const loadMessages = async () => {
@@ -393,6 +414,18 @@ export const MessagingProvider: React.FC<MessagingProviderProps> = ({ children, 
       };
 
       loadMessages();
+      
+      // Subscribe to the chat room for real-time updates
+      if (websocketService.isConnected()) {
+        websocketService.subscribeToRoom(state.activeChatRoom);
+      }
+      
+      // Cleanup: unsubscribe when chat room changes
+      return () => {
+        if (state.activeChatRoom && websocketService.isConnected()) {
+          websocketService.unsubscribeFromRoom(state.activeChatRoom);
+        }
+      };
     }
   }, [state.activeChatRoom]);
 

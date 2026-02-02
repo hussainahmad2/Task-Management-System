@@ -6,7 +6,7 @@ import { MessageList } from "@/components/messaging/MessageList";
 import { MessageInput } from "@/components/messaging/MessageInput";
 import { StartNewChatModal } from "@/components/messaging/StartNewChatModal";
 import { useAuth } from "@/hooks/use-auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MessageCircle } from "lucide-react";
 import { ChatRoom } from "@/types/messaging";
 
@@ -27,9 +27,24 @@ export default function MessagingPage() {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const initializingRef = useRef(false);
 
   const chatRooms = state.chatRooms;
-  const messages = state.messages[activeChatRoom?.id || ""] || [];
+  const messages = state.messages[activeChatRoom?.id ? String(activeChatRoom.id) : ""] || [];
+
+  // Initialize messaging system on component mount (only once)
+  useEffect(() => {
+    if (user?.id && !state.isInitialized && !initializingRef.current) {
+      initializingRef.current = true;
+      actions.setCurrentUser(user.id);
+      actions.initialize()
+        .catch((err) => console.warn("Messaging initialization issue:", err))
+        .finally(() => {
+          // Allow retry after some time if still not initialized
+          setTimeout(() => { initializingRef.current = false; }, 30000);
+        });
+    }
+  }, [user?.id, state.isInitialized]);
 
   // Fetch users for new chat modal
   useEffect(() => {
@@ -82,17 +97,18 @@ export default function MessagingPage() {
         .join(', ');
       
       const newChatRoom = await actions.createChatRoom(
-        selectedUserNames || 'New Chat', // Use the user names as the chat name
+        selectedUserNames || 'New Chat',
         'private',
         selectedUserIds
       );
       
-      // Refresh chat rooms list by re-initializing
-      await actions.initialize();
-      
-      // Select the new chat room
+      // Close modal and immediately open the chat
+      setShowNewChatModal(false);
       setActiveChatRoom(newChatRoom);
-      actions.setActiveChatRoom(newChatRoom.id);
+      actions.setActiveChatRoom(String(newChatRoom.id));
+      
+      // Refresh chat rooms list
+      await actions.initialize();
     } catch (error) {
       console.error("Failed to create chat:", error);
     }
@@ -129,46 +145,78 @@ export default function MessagingPage() {
     }
   };
 
+  const handleDeleteChat = async (chatRoomId: string) => {
+    if (!chatRoomId) return;
+    try {
+      await fetch(`/api/messaging/chat-rooms/${chatRoomId}`, { method: 'DELETE' });
+      if (activeChatRoom?.id === chatRoomId) {
+        setActiveChatRoom(null);
+      }
+      await actions.initialize();
+    } catch (error) {
+      console.error("Failed to delete chat:", error);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!messageId) return;
+    try {
+      await fetch(`/api/messaging/messages/${messageId}`, { method: 'DELETE' });
+      if (activeChatRoom) {
+        actions.setActiveChatRoom(activeChatRoom.id);
+      }
+    } catch (error) {
+      console.error("Failed to delete message:", error);
+    }
+  };
+
   return (
     <Layout>
-      <div className="h-full flex gap-0">
+      <div className="h-[calc(100vh-64px)] flex bg-gray-50 dark:bg-gray-900 -mx-6 -mt-6">
         {/* Chat Sidebar */}
-        <div className="w-80 border-r border-border bg-white/50 dark:bg-gray-800/50">
+        <div className="w-80 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
           <ChatSidebar
-            chatRooms={chatRooms}
-            activeChatRoomId={activeChatRoom?.id}
+            chatRooms={chatRooms.filter((room, index, self) => 
+              // Remove duplicates by name and filter out current user's own chat
+              index === self.findIndex(r => r.name === room.name) &&
+              room.name?.toLowerCase() !== `${user?.firstName} ${user?.lastName}`.toLowerCase()
+            )}
+            activeChatRoomId={activeChatRoom?.id?.toString()}
             onSelectChatRoom={handleSelectChatRoom}
             onCreateChat={handleCreateChat}
+            onDeleteChat={handleDeleteChat}
             className="h-full"
           />
         </div>
 
         {/* Chat Content */}
-        <div className="flex-1 flex flex-col border border-border bg-white dark:bg-gray-900">
+        <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
           {activeChatRoom ? (
             <>
               <ChatHeader
                 chatRoom={activeChatRoom}
                 onBack={() => setActiveChatRoom(null)}
-                className="bg-white/90 dark:bg-gray-800/90 border-b border-border"
+                onDeleteChat={() => handleDeleteChat(activeChatRoom.id)}
+                className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
               />
               <MessageList
                 messages={messages}
                 currentUserId={user?.id || "current-user"}
-                className="flex-1 bg-white/50 dark:bg-gray-800/50"
+                onDeleteMessage={handleDeleteMessage}
+                className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900"
               />
               <MessageInput
                 onSendMessage={handleSendMessage}
                 onSendSticker={handleSendSticker}
                 onSendEmoji={handleSendEmoji}
-                className="bg-white/90 dark:bg-gray-800/90 border-t border-border"
+                className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700"
               />
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-gray-800/50 dark:to-gray-900/50">
+            <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
               <div className="text-center p-8">
-                <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <MessageCircle className="w-10 h-10 text-white" />
+                <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <MessageCircle className="w-10 h-10 text-primary-foreground" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                   Welcome to Messages

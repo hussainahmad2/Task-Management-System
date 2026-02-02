@@ -1,14 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Message } from '../../types/messaging';
+import { Trash2 } from 'lucide-react';
 
 interface MessageItemProps {
   message: Message;
   isOwn: boolean;
+  onDelete?: (messageId: string) => void;
 }
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message, isOwn }) => {
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+export const MessageItem: React.FC<MessageItemProps> = ({ message, isOwn, onDelete }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const formatDate = (date: Date | string | undefined) => {
+    if (!date) return '';
+    try {
+      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      if (isNaN(dateObj.getTime())) return '';
+      return dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '';
+    }
   };
 
   const renderMessageContent = () => {
@@ -92,34 +102,55 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isOwn }) => {
   };
 
   return (
-    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4 group`}>
+    <div 
+      className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-2 group`}
+      onMouseEnter={() => setShowMenu(true)}
+      onMouseLeave={() => setShowMenu(false)}
+    >
+      {/* Delete button - show on hover for own messages */}
+      {isOwn && showMenu && onDelete && (
+        <button
+          onClick={() => onDelete(message.id)}
+          className="self-center mr-2 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      )}
+      
       <div
-        className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl transform hover:scale-[1.02] ${
+        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
           isOwn
-            ? 'bg-gradient-to-r from-purple-500 via-blue-500 to-pink-500 text-white rounded-br-md animate-pulse'
-            : 'bg-gradient-to-br from-white to-purple-50 dark:from-gray-800 dark:to-gray-900 text-gray-800 dark:text-gray-200 rounded-bl-md border-2 border-purple-200/30 dark:border-purple-700/50 shadow-md'
+            ? 'bg-primary text-primary-foreground rounded-br-sm'
+            : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-sm'
         }`}
       >
         {!isOwn && message.senderId && (
-          <div className="text-xs font-bold mb-2 flex items-center">
-            <span className="w-3 h-3 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full mr-2 shadow-sm"></span>
-            <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              {message.senderId}
-            </span>
+          <div className="text-xs font-semibold mb-1 text-gray-600 dark:text-gray-400">
+            {message.senderId}
           </div>
         )}
         
         {renderMessageContent()}
         
-        <div className={`flex items-center mt-2 text-xs font-medium ${isOwn ? 'text-white/90' : 'text-gray-600 dark:text-gray-400'} opacity-90`}>
-          <span className="drop-shadow-sm">{formatDate(message.createdAt)}</span>
+        <div className={`flex items-center mt-1 text-xs ${isOwn ? 'text-primary-foreground/70' : 'text-gray-500 dark:text-gray-400'}`}>
+          <span>{formatDate(message.createdAt)}</span>
           {isOwn && (
-            <span className="ml-2 flex items-center drop-shadow-sm">
+            <span className="ml-2 flex items-center">
               {getStatusIcon()}
             </span>
           )}
         </div>
       </div>
+
+      {/* Delete button - show on hover for other's messages */}
+      {!isOwn && showMenu && onDelete && (
+        <button
+          onClick={() => onDelete(message.id)}
+          className="self-center ml-2 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 };

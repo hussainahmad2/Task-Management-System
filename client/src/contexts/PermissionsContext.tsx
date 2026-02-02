@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { type User } from "@shared/schema";
+import { getQueryFn } from "@/lib/queryClient";
 
 interface PermissionsContextType {
     permissions: string[];
@@ -14,38 +15,55 @@ const PermissionsContext = createContext<PermissionsContextType | undefined>(und
 
 export function PermissionsProvider({ children }: { children: React.ReactNode }) {
     // Fetch permissions for current user
-    const { data: permissions = [], isLoading, refetch } = useQuery<string[]>({
+    const { data: permissions = [], isLoading, refetch, error: permissionsError } = useQuery<string[]>({
         queryKey: ["/api/auth/permissions"],
-        // Only fetch if we have a user (handled by parent AuthProvider usually, but safe to default empty)
+        queryFn: getQueryFn({ on401: "returnNull" }),
         retry: false,
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
+
+    // Log errors for debugging
+    if (permissionsError) {
+        console.log("Permissions query error:", permissionsError);
+    }
+
+    // Handle case where permissions API returns null due to 401
+    const safePermissions = permissions || [];
 
     // We also need access to the user object for role checking
     // Assuming there is an AuthContext or we fetch user separately. 
     // For now, let's fetch user again or rely on a separate query. 
     // Ideally this should integrate with AuthContext.
-    const { data: user } = useQuery<User>({
+    const { data: user, error: userError } = useQuery<User>({
         queryKey: ["/api/auth/user"],
+        queryFn: getQueryFn({ on401: "returnNull" }),
         retry: false,
     });
 
+    // Log errors for debugging
+    if (userError) {
+        console.log("User query error:", userError);
+    }
+
+    // Handle case where user API returns null due to 401
+    const safeUser = user || null;
+
     const hasPermission = (permission: string) => {
-        return permissions.includes(permission);
+        return safePermissions.includes(permission);
     };
 
     const hasRole = (role: string | string[]) => {
-        if (!user) return false;
+        if (!safeUser) return false;
         if (Array.isArray(role)) {
-            return role.includes(user.role);
+            return role.includes(safeUser.role);
         }
-        return user.role === role;
+        return safeUser.role === role;
     };
 
     return (
         <PermissionsContext.Provider
             value={{
-                permissions,
+                permissions: safePermissions,
                 isLoading,
                 hasPermission,
                 hasRole,
