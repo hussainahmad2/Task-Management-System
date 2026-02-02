@@ -163,7 +163,7 @@ export default function Employees() {
 
                   <div className="space-y-2">
                     <Label>Role</Label>
-                    <Select onValueChange={(val) => form.setValue("role", val as any)} defaultValue={form.getValues("role")}>
+                    <Select value={form.watch("role") || ""} onValueChange={(val) => form.setValue("role", val as "CEO" | "CPO" | "CTO" | "CIO" | "General Manager" | "HR Manager" | "Finance Manager" | "Assistant Manager" | "Senior Employee" | "Junior Employee" | "Intern")}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
@@ -189,7 +189,7 @@ export default function Employees() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Employment Type</Label>
-                      <Select onValueChange={(val) => form.setValue("employmentType", val as any)} defaultValue={form.getValues("employmentType")}>
+                      <Select value={form.watch("employmentType") || ""} onValueChange={(val) => form.setValue("employmentType", val as "full-time" | "part-time" | "contract" | "intern")}> 
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -231,14 +231,14 @@ export default function Employees() {
                         <div className="flex items-center gap-4">
                           <Avatar className="w-12 h-12 border-2 border-background shadow-sm">
                             <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                              {emp.designation[0]}
+                              {emp.designation?.[0] ?? 'U'}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <h3 className="font-bold text-lg leading-tight group-hover:text-primary transition-colors">
                               {emp.user?.firstName || "Employee"} {emp.user?.lastName || `#${emp.id}`}
                             </h3>
-                            <p className="text-sm text-muted-foreground">{emp.designation}</p>
+                            <p className="text-sm text-muted-foreground">{emp.designation ?? 'N/A'}</p>
                           </div>
                         </div>
                         <Badge variant={emp.isActive ? "default" : "secondary"}>
@@ -282,19 +282,19 @@ export default function Employees() {
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-3">
                             <Avatar className="w-8 h-8">
-                              <AvatarFallback>{emp.designation[0]}</AvatarFallback>
+                              <AvatarFallback>{emp.designation?.[0] ?? 'U'}</AvatarFallback>
                             </Avatar>
                             <span>{emp.user?.firstName || "Employee"} {emp.user?.lastName || `#${emp.id}`}</span>
                           </div>
                         </TableCell>
                         <TableCell>{emp.role}</TableCell>
-                        <TableCell>{emp.designation}</TableCell>
+                        <TableCell>{emp.designation ?? 'N/A'}</TableCell>
                         <TableCell>
                           <Badge variant={emp.isActive ? "outline" : "secondary"}>
                             {emp.isActive ? "Active" : "Inactive"}
                           </Badge>
                         </TableCell>
-                        <TableCell>{new Date(emp.joiningDate).toLocaleDateString()}</TableCell>
+                        <TableCell>{emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString() : 'N/A'}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm">View</Button>
                         </TableCell>
@@ -320,11 +320,11 @@ export default function Employees() {
                           <CardContent className="p-4">
                             <div className="flex items-center gap-3 mb-3">
                               <Avatar className="w-8 h-8">
-                                <AvatarFallback>{emp.designation[0]}</AvatarFallback>
+                                <AvatarFallback>{emp.designation?.[0] ?? 'U'}</AvatarFallback>
                               </Avatar>
                               <div>
                                 <p className="font-medium text-sm">{emp.user?.firstName || "Employee"} {emp.user?.lastName}</p>
-                                <p className="text-xs text-muted-foreground">{emp.designation}</p>
+                                <p className="text-xs text-muted-foreground">{emp.designation ?? 'N/A'}</p>
                               </div>
                             </div>
                             <Button variant="outline" size="sm" className="w-full text-xs h-7">View Profile</Button>

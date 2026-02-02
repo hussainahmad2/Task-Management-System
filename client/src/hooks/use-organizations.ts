@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
-import { type Organization, type InsertOrganization } from "@shared/schema";
+import { type Organization } from "@shared/schema";
+import { z } from "zod";
+import { insertOrganizationSchema } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 export function useOrganizations() {
@@ -19,7 +21,7 @@ export function useCreateOrganization() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: InsertOrganization) => {
+    mutationFn: async (data: z.infer<typeof insertOrganizationSchema>) => {
       const res = await fetch(api.organizations.create.path, {
         method: api.organizations.create.method,
         headers: { "Content-Type": "application/json" },

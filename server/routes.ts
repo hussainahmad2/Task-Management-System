@@ -65,6 +65,170 @@ export async function registerRoutes(
     res.json({ message: "pong" });
   });
 
+  // Get all users (for messaging)
+  app.get("/api/users", async (req, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      res.json({ users: allUsers });
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // === Messaging Routes ===
+
+  // Chat Rooms
+  app.get("/api/messaging/chat-rooms", async (req, res) => {
+    try {
+      const chatRooms = await storage.getChatRooms();
+      res.json(chatRooms);
+    } catch (error) {
+      console.error("Error fetching chat rooms:", error);
+      res.status(500).json({ message: "Failed to fetch chat rooms" });
+    }
+  });
+
+  app.post("/api/messaging/chat-rooms", async (req, res) => {
+    try {
+      const { name, type, description } = req.body;
+      const newChatRoom = await storage.createChatRoom({
+        name,
+        type,
+        description,
+        createdBy: (req.user as any)?.id || 'unknown'
+      });
+      res.status(201).json(newChatRoom);
+    } catch (error) {
+      console.error("Error creating chat room:", error);
+      res.status(500).json({ message: "Failed to create chat room" });
+    }
+  });
+
+  app.get("/api/messaging/chat-rooms/:id", async (req, res) => {
+    try {
+      const chatRoom = await storage.getChatRoomById(req.params.id);
+      if (!chatRoom) {
+        return res.status(404).json({ message: "Chat room not found" });
+      }
+      res.json(chatRoom);
+    } catch (error) {
+      console.error("Error fetching chat room:", error);
+      res.status(500).json({ message: "Failed to fetch chat room" });
+    }
+  });
+
+  app.put("/api/messaging/chat-rooms/:id", async (req, res) => {
+    try {
+      const updates = req.body;
+      const updatedChatRoom = await storage.updateChatRoom(req.params.id, updates);
+      if (!updatedChatRoom) {
+        return res.status(404).json({ message: "Chat room not found" });
+      }
+      res.json(updatedChatRoom);
+    } catch (error) {
+      console.error("Error updating chat room:", error);
+      res.status(500).json({ message: "Failed to update chat room" });
+    }
+  });
+
+  app.delete("/api/messaging/chat-rooms/:id", async (req, res) => {
+    try {
+      await storage.deleteChatRoom(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting chat room:", error);
+      res.status(500).json({ message: "Failed to delete chat room" });
+    }
+  });
+
+  // Messages
+  app.get("/api/messaging/chat-rooms/:chatRoomId/messages", async (req, res) => {
+    try {
+      const messages = await storage.getMessagesByChatRoom(req.params.chatRoomId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  app.post("/api/messaging/messages", async (req, res) => {
+    try {
+      const { chatRoomId, content, messageType, mediaUrl } = req.body;
+      const newMessage = await storage.createMessage({
+        chatRoomId,
+        senderId: (req.user as any)?.id || 'unknown',
+        content,
+        messageType,
+        mediaUrl
+      });
+      res.status(201).json(newMessage);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  app.get("/api/messaging/messages/:id", async (req, res) => {
+    try {
+      const message = await storage.getMessageById(req.params.id);
+      if (!message) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+      res.json(message);
+    } catch (error) {
+      console.error("Error fetching message:", error);
+      res.status(500).json({ message: "Failed to fetch message" });
+    }
+  });
+
+  app.put("/api/messaging/messages/:id", async (req, res) => {
+    try {
+      const updates = req.body;
+      const updatedMessage = await storage.updateMessage(req.params.id, updates);
+      if (!updatedMessage) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+      res.json(updatedMessage);
+    } catch (error) {
+      console.error("Error updating message:", error);
+      res.status(500).json({ message: "Failed to update message" });
+    }
+  });
+
+  app.delete("/api/messaging/messages/:id", async (req, res) => {
+    try {
+      const { forEveryone = false } = req.query;
+      await storage.deleteMessage(req.params.id, forEveryone === 'true');
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      res.status(500).json({ message: "Failed to delete message" });
+    }
+  });
+
+  // Add participants to chat room
+  app.post("/api/messaging/chat-rooms/:id/participants", async (req, res) => {
+    try {
+      const { userIds } = req.body;
+      if (!Array.isArray(userIds)) {
+        return res.status(400).json({ message: "userIds must be an array" });
+      }
+      
+      const results = [];
+      for (const userId of userIds) {
+        const participant = await storage.addChatRoomParticipant(req.params.id, userId);
+        results.push(participant);
+      }
+      
+      res.status(201).json(results);
+    } catch (error) {
+      console.error("Error adding participants:", error);
+      res.status(500).json({ message: "Failed to add participants" });
+    }
+  });
+
   // === RBAC Routes ===
 
   // Get current user permissions

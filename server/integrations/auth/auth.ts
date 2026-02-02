@@ -50,7 +50,7 @@ export async function setupAuth(app: Express) {
           return done(null, false, { message: "Incorrect password." });
         }
 
-        return done(null, user);
+        return done(null, user as any);
       } catch (err) {
         return done(err);
       }
@@ -61,7 +61,7 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser(async (id: string, cb) => {
     try {
       const user = await authStorage.getUser(id);
-      cb(null, user);
+      cb(null, user as any);
     } catch (err) {
       cb(err);
     }

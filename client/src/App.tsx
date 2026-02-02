@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import Login from "@/pages/Login";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -14,7 +14,7 @@ import { FinanceDashboard } from "@/components/dashboards/finance/FinanceDashboa
 import { CTODashboard } from "@/components/dashboards/executive/CTODashboard";
 import { GMDashboard } from "@/components/dashboards/executive/GMDashboard";
 import { CIODashboard } from "@/components/dashboards/executive/CIODashboard";
-import { AssistantManagerDashboard } from "@/components/dashboards/operations/AssistantManagerDashboard"; // Added if not present or just fixing imports
+import { AssistantManagerDashboard } from "@/components/dashboards/operations/AssistantManagerDashboard";
 import Layout from "@/components/Layout";
 import Tasks from "@/pages/Tasks";
 import Employees from "@/pages/Employees";
@@ -36,6 +36,7 @@ import MyLeaveRequests from "@/pages/employee/MyLeaveRequests";
 import MyPayroll from "@/pages/employee/MyPayroll";
 import LearningModules from "@/pages/intern/LearningModules";
 import ContactAdmin from "@/pages/ContactAdmin";
+import MessagingPage from "@/pages/messaging/Messaging";
 
 function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -58,133 +59,172 @@ function PrivateRoute({ component: Component }: { component: React.ComponentType
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [location] = useLocation();
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen bg-background">Loading...</div>;
   }
 
-  return (
-    <Switch>
-      <Route path="/" component={isAuthenticated ? Dashboard : Landing} />
-      <Route path="/login" component={Login} />
-      <Route path="/contact-admin" component={ContactAdmin} />
-      <Route path="/dashboard">
-        <PrivateRoute component={Dashboard} />
-      </Route>
+  // Main routes
+  if (location === "/" && !isAuthenticated) {
+    return <Landing />;
+  }
+  if (location === "/login") {
+    return <Login />;
+  }
+  if (location === "/contact-admin") {
+    return <ContactAdmin />;
+  }
+  if (location === "/messaging") {
+    return <PrivateRoute component={MessagingPage} />;
+  }
+  if (location === "/dashboard" && isAuthenticated) {
+    return <PrivateRoute component={Dashboard} />;
+  }
 
-      {/* Role Specific Dashboard Routes for Admin/Direct Access */}
-      <Route path="/dashboard/hr">
-        <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
-          <Layout><HRDashboard /></Layout>
-        </ProtectedRoute>
-      </Route>
-      <Route path="/dashboard/finance">
-        <ProtectedRoute requiredRole={["CEO", "Finance Manager"]}>
-          <Layout><FinanceDashboard /></Layout>
-        </ProtectedRoute>
-      </Route>
-      <Route path="/dashboard/engineering">
-        <ProtectedRoute requiredRole={["CEO", "CTO", "CIO"]}>
-          <Layout><CTODashboard /></Layout>
-        </ProtectedRoute>
-      </Route>
-      <Route path="/dashboard/operations">
-        <ProtectedRoute requiredRole={["CEO", "General Manager"]}>
-          <Layout><GMDashboard /></Layout>
-        </ProtectedRoute>
-      </Route>
-      <Route path="/dashboard/it">
-        <ProtectedRoute requiredRole={["CEO", "CIO"]}>
-          <Layout><CIODashboard /></Layout>
-        </ProtectedRoute>
-      </Route>
+  // Role Specific Dashboard Routes for Admin/Direct Access
+  if (location.startsWith("/dashboard/hr")) {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
+        <Layout><HRDashboard /></Layout>
+      </ProtectedRoute>
+    );
+  }
+  if (location.startsWith("/dashboard/finance")) {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "Finance Manager"]}>
+        <Layout><FinanceDashboard /></Layout>
+      </ProtectedRoute>
+    );
+  }
+  if (location.startsWith("/dashboard/engineering")) {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "CTO", "CIO"]}>
+        <Layout><CTODashboard /></Layout>
+      </ProtectedRoute>
+    );
+  }
+  if (location.startsWith("/dashboard/operations")) {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "General Manager"]}>
+        <Layout><GMDashboard /></Layout>
+      </ProtectedRoute>
+    );
+  }
+  if (location.startsWith("/dashboard/it")) {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "CIO"]}>
+        <Layout><CIODashboard /></Layout>
+      </ProtectedRoute>
+    );
+  }
 
-      <Route path="/tasks">
-        <PrivateRoute component={Tasks} />
-      </Route>
-      <Route path="/employees">
-        <PrivateRoute component={Employees} />
-      </Route>
-      <Route path="/employees/:id">
-        <PrivateRoute component={EmployeeProfile} />
-      </Route>
-      <Route path="/departments">
-        <PrivateRoute component={Departments} />
-      </Route>
-      <Route path="/settings">
-        <PrivateRoute component={Settings} />
-      </Route>
-      <Route path="/permissions">
-        <ProtectedRoute requiredPermission="permissions.manage">
-          <Permissions />
-        </ProtectedRoute>
-      </Route>
+  if (location === "/tasks") {
+    return <PrivateRoute component={Tasks} />;
+  }
+  if (location === "/employees") {
+    return <PrivateRoute component={Employees} />;
+  }
+  if (location.match(/^\/employees\/.+$/)) {
+    return <PrivateRoute component={EmployeeProfile} />;
+  }
+  if (location === "/departments") {
+    return <PrivateRoute component={Departments} />;
+  }
+  if (location === "/settings") {
+    return <PrivateRoute component={Settings} />;
+  }
+  if (location === "/permissions") {
+    return (
+      <ProtectedRoute requiredPermission="permissions.manage">
+        <Permissions />
+      </ProtectedRoute>
+    );
+  }
 
-      {/* HR Management Routes */}
-      <Route path="/hr/recruitment">
-        <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
-          <Layout><Recruitment /></Layout>
-        </ProtectedRoute>
-      </Route>
-      <Route path="/hr/leaves">
-        <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
-          <Layout><LeaveManagement /></Layout>
-        </ProtectedRoute>
-      </Route>
-      <Route path="/hr/payroll">
-        <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
-          <Layout><Payroll /></Layout>
-        </ProtectedRoute>
-      </Route>
-      <Route path="/hr/performance">
-        <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
-          <Layout><PerformanceReviews /></Layout>
-        </ProtectedRoute>
-      </Route>
-      <Route path="/hr/policies">
-        <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
-          <Layout><Policies /></Layout>
-        </ProtectedRoute>
-      </Route>
+  // HR Management Routes
+  if (location === "/hr/recruitment") {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
+        <Layout><Recruitment /></Layout>
+      </ProtectedRoute>
+    );
+  }
+  if (location === "/hr/leaves") {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
+        <Layout><LeaveManagement /></Layout>
+      </ProtectedRoute>
+    );
+  }
+  if (location === "/hr/payroll") {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
+        <Layout><Payroll /></Layout>
+      </ProtectedRoute>
+    );
+  }
+  if (location === "/hr/performance") {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
+        <Layout><PerformanceReviews /></Layout>
+      </ProtectedRoute>
+    );
+  }
+  if (location === "/hr/policies") {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "HR Manager"]}>
+        <Layout><Policies /></Layout>
+      </ProtectedRoute>
+    );
+  }
 
-      {/* CPO Routes */}
-      <Route path="/cpo/roadmap">
-        <ProtectedRoute requiredRole={["CEO", "CPO"]}>
-          <Layout><ProductRoadmap /></Layout>
-        </ProtectedRoute>
-      </Route>
+  // CPO Routes
+  if (location === "/cpo/roadmap") {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "CPO"]}>
+        <Layout><ProductRoadmap /></Layout>
+      </ProtectedRoute>
+    );
+  }
 
-      {/* CTO Routes */}
-      <Route path="/cto/reviews">
-        <ProtectedRoute requiredRole={["CEO", "CTO"]}>
-          <Layout><CodeReviews /></Layout>
-        </ProtectedRoute>
-      </Route>
+  // CTO Routes
+  if (location === "/cto/reviews") {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "CTO"]}>
+        <Layout><CodeReviews /></Layout>
+      </ProtectedRoute>
+    );
+  }
 
-      {/* Employee Routes */}
-      <Route path="/employee/timesheet">
-        <PrivateRoute component={() => <Layout><Timesheet /></Layout>} />
-      </Route>
-      <Route path="/employee/leaves">
-        <PrivateRoute component={() => <Layout><MyLeaveRequests /></Layout>} />
-      </Route>
-      <Route path="/employee/payroll">
-        <PrivateRoute component={() => <Layout><MyPayroll /></Layout>} />
-      </Route>
+  // Employee Routes
+  if (location === "/employee/timesheet") {
+    return <PrivateRoute component={() => <Layout><Timesheet /></Layout>} />;
+  }
+  if (location === "/employee/leaves") {
+    return <PrivateRoute component={() => <Layout><MyLeaveRequests /></Layout>} />;
+  }
+  if (location === "/employee/payroll") {
+    return <PrivateRoute component={() => <Layout><MyPayroll /></Layout>} />;
+  }
 
-      {/* Intern Routes */}
-      <Route path="/intern/learning">
-        <ProtectedRoute requiredRole={["CEO", "HR Manager", "Intern"]}>
-          <Layout><LearningModules /></Layout>
-        </ProtectedRoute>
-      </Route>
+  // Intern Routes
+  if (location === "/intern/learning") {
+    return (
+      <ProtectedRoute requiredRole={["CEO", "HR Manager", "Intern"]}>
+        <Layout><LearningModules /></Layout>
+      </ProtectedRoute>
+    );
+  }
 
-      <Route component={NotFound} />
-    </Switch>
-  );
+  // Messaging is now integrated into the main layout
+
+  // Default route
+  return <NotFound />;
 }
 
 import { PermissionsProvider } from "@/contexts/PermissionsContext";
+import { MessagingProvider } from "@/contexts/MessagingContext";
 
 function App() {
   return (
@@ -193,7 +233,9 @@ function App() {
         <PermissionsProvider>
           <TooltipProvider>
             <Toaster />
-            <Router />
+            <MessagingProvider>
+              <Router />
+            </MessagingProvider>
           </TooltipProvider>
         </PermissionsProvider>
       </ThemeProvider>

@@ -24,19 +24,43 @@ import {
   Clock,
   BookOpen,
   Sun,
-  Moon
+  Moon,
+  MessageCircle,
+  Phone,
+  Video,
+  Mail,
+  User,
+  Contact,
+  Send,
+  Smile,
+  Sticker
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useTheme } from "@/hooks/use-theme";
 import { usePermissions } from "@/contexts/PermissionsContext";
+import { useState } from "react";
+import { ChatSidebar } from "./messaging/ChatSidebar";
+import { ChatHeader } from "./messaging/ChatHeader";
+import { MessageList } from "./messaging/MessageList";
+import { MessageInput } from "./messaging/MessageInput";
+import { useMessaging } from "@/contexts/MessagingContext";
+import { ChatRoom } from "@/types/messaging";
+import React from "react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isMessagingOpen, setIsMessagingOpen] = useState(false);
+  
+  const { state, actions } = useMessaging();
+  const [activeChatRoom, setActiveChatRoom] = useState<ChatRoom | null>(null);
+  
+  // Use real data from context
+  const chatRooms = state.chatRooms;
+  const messages = state.messages[activeChatRoom?.id || ''] || [];
   const { theme, setTheme, density } = useTheme();
   const { data: orgs } = useOrganizations();
   const { hasPermission } = usePermissions();
@@ -55,6 +79,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // HR-specific navigation items
   const hrNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/messaging", label: "Messages", icon: MessageCircle },
     { href: "/hr/recruitment", label: "Recruitment", icon: UserPlus },
     { href: "/hr/leaves", label: "Leave Management", icon: Calendar },
     { href: "/hr/payroll", label: "Payroll", icon: DollarSign },
@@ -69,6 +94,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // CPO-specific navigation items
   const cpoNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/messaging", label: "Messages", icon: MessageCircle },
     { href: "/cpo/roadmap", label: "Product Roadmap", icon: Target },
     { href: "/tasks", label: "Tasks", icon: CheckSquare },
     { href: "/employees", label: "Team", icon: Users },
@@ -78,6 +104,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // CTO-specific navigation items
   const ctoNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/messaging", label: "Messages", icon: MessageCircle },
     { href: "/cto/reviews", label: "Code Reviews", icon: GitBranch },
     { href: "/tasks", label: "Tasks", icon: CheckSquare },
     { href: "/employees", label: "Team", icon: Users },
@@ -87,6 +114,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // Employee-specific navigation items
   const employeeNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/messaging", label: "Messages", icon: MessageCircle },
     { href: "/employee/timesheet", label: "Timesheet", icon: Clock },
     { href: "/employee/leaves", label: "My Leaves", icon: Calendar },
     { href: "/employee/payroll", label: "My Payroll", icon: DollarSign },
@@ -97,6 +125,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // Intern-specific navigation items
   const internNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/messaging", label: "Messages", icon: MessageCircle },
     { href: "/intern/learning", label: "Learning Modules", icon: BookOpen },
     { href: "/employee/timesheet", label: "Timesheet", icon: Clock },
     { href: "/employee/leaves", label: "My Leaves", icon: Calendar },
@@ -107,6 +136,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // Default navigation items for other roles
   const defaultNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/messaging", label: "Messages", icon: MessageCircle },
     { href: "/tasks", label: "Tasks", icon: CheckSquare },
     { href: "/employees", label: "Employees", icon: Users },
     { href: "/departments", label: "Departments", icon: Building2 },
@@ -132,18 +162,70 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     // Ideally we'd have a collapsible section, but for now flat list with specific prefixes
   }
 
-  // Actually, let's just make them available if you are CEO, maybe separate section? 
-  // For simplicity given the design, I'll add them to the main nav but only for CEO.
+  // Handle messaging functionality
+  const handleSelectChatRoom = (chatRoomId: string) => {
+    const room = chatRooms.find(room => room.id === chatRoomId);
+    if (room) {
+      setActiveChatRoom(room);
+      actions.setActiveChatRoom(chatRoomId);
+      // Mark messages as read when selecting a chat room
+      actions.markMessagesAsRead(chatRoomId);
+    }
+  };
+
+  const handleSendMessage = async (content: string) => {
+    if (!activeChatRoom || !user?.id) return;
+    
+    try {
+      await actions.sendMessage(activeChatRoom.id, content);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  };
+
+  const handleSendSticker = async (stickerId: string) => {
+    if (!activeChatRoom || !user?.id) return;
+    
+    try {
+      const stickerUrl = `/api/stickers/${stickerId}`;
+      await actions.sendMessage(activeChatRoom.id, '', 'sticker', stickerUrl);
+    } catch (error) {
+      console.error('Failed to send sticker:', error);
+    }
+  };
+
+  const handleSendEmoji = async (emoji: string) => {
+    if (!activeChatRoom || !user?.id) return;
+    
+    try {
+      await actions.sendMessage(activeChatRoom.id, emoji, 'text');
+    } catch (error) {
+      console.error('Failed to send emoji:', error);
+    }
+  };
+
+  // Set current user when available
+  const setCurrentUserRef = React.useRef(actions.setCurrentUser);
+  
+  React.useEffect(() => {
+    setCurrentUserRef.current = actions.setCurrentUser;
+  }, [actions.setCurrentUser]);
+  
+  React.useEffect(() => {
+    if (user?.id) {
+      setCurrentUserRef.current(user.id);
+    }
+  }, [user?.id]);
 
   const specializedDashboards = [
     { href: "/dashboard/hr", label: "HR Dashboard", icon: Users },
-    { href: "/dashboard/finance", label: "Finance", icon: Building2 }, // Reusing Building2 or need DollarSign
+    { href: "/dashboard/finance", label: "Finance", icon: Building2 },
     { href: "/dashboard/engineering", label: "Engineering", icon: Briefcase },
     { href: "/dashboard/operations", label: "Operations", icon: Activity },
     { href: "/dashboard/it", label: "IT Systems", icon: Server },
   ];
 
-  const showSpecialized = user?.role === "CEO" || user?.role === "Superadmin"; // Fallback role name logic
+  const showSpecialized = user?.role === "CEO" || user?.role === "Superadmin";
 
 
   return (
@@ -246,6 +328,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 {theme === "dark" ? "Light Mode" : "Dark Mode"}
               </Button>
+              
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 text-muted-foreground hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-200 dark:hover:border-purple-800"
+                onClick={() => setIsMessagingOpen(!isMessagingOpen)}
+              >
+                <MessageCircle className="w-4 h-4" />
+                Messages
+                {state.unreadCount > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {state.unreadCount > 99 ? '99+' : state.unreadCount}
+                  </span>
+                )}
+              </Button>
                       
               <Button
                 variant="outline"
@@ -280,10 +376,69 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </Button>
         </header>
 
-        <div className="flex-1 p-4 md:p-8 overflow-y-auto">
+        <div className="flex-1 p-4 md:p-8 overflow-y-auto relative">
           <div className="max-w-7xl mx-auto w-full">
             {children}
           </div>
+          
+          {/* Messaging Panel Overlay */}
+          {isMessagingOpen && (
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex" onClick={() => setIsMessagingOpen(false)}>
+              <div 
+                className="ml-auto w-full max-w-4xl h-full bg-gradient-to-br from-white via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 shadow-2xl border-l border-border"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex h-full">
+                  {/* Chat Sidebar */}
+                  <div className="w-80 border-r border-border bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+                    <ChatSidebar
+                      chatRooms={chatRooms}
+                      activeChatRoomId={activeChatRoom?.id}
+                      onSelectChatRoom={handleSelectChatRoom}
+                      onCreateChat={() => {}}
+                      className="h-full"
+                    />
+                  </div>
+                  
+                  {/* Chat Content */}
+                  <div className="flex-1 flex flex-col">
+                    {activeChatRoom ? (
+                      <>
+                        <ChatHeader
+                          chatRoom={activeChatRoom}
+                          onBack={() => setActiveChatRoom(null)}
+                          className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-b border-border"
+                        />
+                        <MessageList
+                          messages={messages}
+                          currentUserId={user?.id || "current-user"}
+                          className="flex-1 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm"
+                        />
+                        <MessageInput
+                          onSendMessage={handleSendMessage}
+                          onSendSticker={handleSendSticker}
+                          onSendEmoji={handleSendEmoji}
+                          className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-t border-border"
+                        />
+                      </>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-gray-800/50 dark:to-gray-900/50">
+                        <div className="text-center p-8">
+                          <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                            <MessageCircle className="w-10 h-10 text-white" />
+                          </div>
+                          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Welcome to Messages</h3>
+                          <p className="text-gray-600 dark:text-gray-400 max-w-sm">
+                            Select a conversation from the sidebar to start chatting
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

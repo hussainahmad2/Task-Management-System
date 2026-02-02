@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ResponsiveContainer, GanttChart, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
 const roadmapItems = [
     { id: 1, feature: "Advanced Analytics", quarter: "Q1", status: "In Development", progress: 65, priority: "High", team: "Engineering", releaseDate: "2024-03-15" },

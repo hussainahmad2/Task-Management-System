@@ -5,7 +5,8 @@ import {
   type Organization, type Department, type Employee, type Task, type TimeLog, type PerformanceMetric, type Permission, type RolePermission,
   type CreateTaskRequest, type UpdateTaskRequest, type CreateEmployeeRequest,
   type CreateInvoiceRequest, type CreateLeaveRequestRequest, type CreateAuditLogRequest,
-  users
+  users,
+  chatRooms, messages, chatRoomParticipants
 } from "@shared/schema";
 import { eq, and, desc, sql, inArray, gte, lte } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -245,6 +246,161 @@ export class DatabaseStorage implements IStorage {
 
   async updateUser(id: string, updates: Partial<typeof users.$inferSelect>): Promise<void> {
     await db.update(users).set(updates).where(eq(users.id, id));
+  }
+
+  async getAllUsers(): Promise<any[]> {
+    const usersList = await db.select().from(users);
+    return usersList.map(user => ({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      profileImageUrl: user.profileImageUrl,
+      role: user.role
+    }));
+  }
+
+  // === Messaging Methods ===
+
+  async getChatRooms(): Promise<any[]> {
+    try {
+      return await db.select().from(chatRooms);
+    } catch (error) {
+      console.error("Error getting chat rooms:", error);
+      return [];
+    }
+  }
+
+  async getChatRoomById(id: string): Promise<any> {
+    try {
+      const [room] = await db.select().from(chatRooms).where(eq(chatRooms.id, Number(id)));
+      return room;
+    } catch (error) {
+      console.error("Error getting chat room:", error);
+      return null;
+    }
+  }
+
+  async createChatRoom(data: { name: string; type: string; description?: string; createdBy: string }): Promise<any> {
+    try {
+      await db.insert(chatRooms).values({
+        name: data.name,
+        type: data.type as any,
+        description: data.description,
+        createdById: data.createdBy
+      });
+      // Return a simple success response
+      return { id: Date.now().toString(), name: data.name, type: data.type };
+    } catch (error) {
+      console.error("Error creating chat room:", error);
+      throw error;
+    }
+  }
+
+  async updateChatRoom(id: string, updates: Partial<any>): Promise<any> {
+    try {
+      await db.update(chatRooms)
+        .set(updates)
+        .where(eq(chatRooms.id, Number(id)));
+      return { id, ...updates };
+    } catch (error) {
+      console.error("Error updating chat room:", error);
+      throw error;
+    }
+  }
+
+  async deleteChatRoom(id: string): Promise<void> {
+    try {
+      await db.delete(chatRooms).where(eq(chatRooms.id, Number(id)));
+    } catch (error) {
+      console.error("Error deleting chat room:", error);
+      throw error;
+    }
+  }
+
+  async getMessagesByChatRoom(chatRoomId: string): Promise<any[]> {
+    try {
+      return await db.select().from(messages).where(eq(messages.chatRoomId, Number(chatRoomId)));
+    } catch (error) {
+      console.error("Error getting messages:", error);
+      return [];
+    }
+  }
+
+  async getMessageById(id: string): Promise<any> {
+    try {
+      const [message] = await db.select().from(messages).where(eq(messages.id, Number(id)));
+      return message;
+    } catch (error) {
+      console.error("Error getting message:", error);
+      return null;
+    }
+  }
+
+  async createMessage(data: { chatRoomId: string; senderId: string; content: string; messageType: string; mediaUrl?: string }): Promise<any> {
+    try {
+      await db.insert(messages).values({
+        chatRoomId: Number(data.chatRoomId),
+        senderId: data.senderId,
+        content: data.content,
+        messageType: data.messageType as any,
+        mediaUrl: data.mediaUrl
+      });
+      // Return a simple success response
+      return { 
+        id: Date.now().toString(), 
+        chatRoomId: data.chatRoomId, 
+        senderId: data.senderId, 
+        content: data.content,
+        messageType: data.messageType
+      };
+    } catch (error) {
+      console.error("Error creating message:", error);
+      throw error;
+    }
+  }
+
+  async updateMessage(id: string, updates: Partial<any>): Promise<any> {
+    try {
+      await db.update(messages)
+        .set(updates)
+        .where(eq(messages.id, Number(id)));
+      return { id, ...updates };
+    } catch (error) {
+      console.error("Error updating message:", error);
+      throw error;
+    }
+  }
+
+  async deleteMessage(id: string, forEveryone: boolean): Promise<void> {
+    try {
+      if (forEveryone) {
+        await db.update(messages)
+          .set({ isDeleted: true, deletedForEveryone: true })
+          .where(eq(messages.id, Number(id)));
+      } else {
+        await db.update(messages)
+          .set({ isDeleted: true })
+          .where(eq(messages.id, Number(id)));
+      }
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      throw error;
+    }
+  }
+
+  async addChatRoomParticipant(chatRoomId: string, userId: string): Promise<any> {
+    try {
+      await db.insert(chatRoomParticipants).values({
+        chatRoomId: Number(chatRoomId),
+        userId: userId
+      });
+      return { chatRoomId, userId };
+    } catch (error) {
+      console.error("Error adding participant:", error);
+      throw error;
+    }
   }
 
   // === RBAC Permissions ===

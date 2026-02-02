@@ -56,13 +56,13 @@ export default function EmployeeProfile() {
                         <CardContent className="pt-6 flex flex-col items-center text-center space-y-4">
                             <Avatar className="w-32 h-32 border-4 border-background shadow-lg">
                                 <AvatarFallback className="text-3xl bg-primary/10 text-primary font-bold">
-                                    {employee.designation[0]}
+                                    {employee.designation?.[0] ?? 'U'}
                                 </AvatarFallback>
                             </Avatar>
 
                             <div>
                                 <h3 className="text-2xl font-bold">Employee #{employee.id}</h3>
-                                <p className="text-muted-foreground">{employee.designation}</p>
+                                <p className="text-muted-foreground">{employee.designation ?? 'N/A'}</p>
                             </div>
 
                             <Badge variant={employee.isActive ? "default" : "secondary"} className="px-4 py-1">
@@ -97,7 +97,7 @@ export default function EmployeeProfile() {
                                     <span className="text-sm text-muted-foreground flex items-center gap-2">
                                         <Calendar className="w-4 h-4" /> Joining Date
                                     </span>
-                                    <p className="font-medium">{new Date(employee.joiningDate).toLocaleDateString()}</p>
+                                    <p className="font-medium">{employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString() : 'N/A'}</p>
                                 </div>
                                 <div className="space-y-1">
                                     <span className="text-sm text-muted-foreground flex items-center gap-2">
