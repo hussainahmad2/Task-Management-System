@@ -22,7 +22,9 @@ import {
   Target,
   GitBranch,
   Clock,
-  BookOpen
+  BookOpen,
+  Sun,
+  Moon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -35,7 +37,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const { density } = useTheme();
+  const { theme, setTheme, density } = useTheme();
   const { data: orgs } = useOrganizations();
   const { hasPermission } = usePermissions();
 
@@ -232,14 +234,28 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/20"
-              onClick={() => logout()}
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </Button>
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  const newTheme = theme === "dark" ? "light" : "dark";
+                  setTheme(newTheme);
+                }}
+              >
+                {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                {theme === "dark" ? "Light Mode" : "Dark Mode"}
+              </Button>
+                      
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/20"
+                onClick={() => logout()}
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
       </aside>
@@ -252,7 +268,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Menu className="w-5 h-5" />
           </Button>
           <span className="font-display font-bold text-lg">Enterprise</span>
-          <div className="w-10" /> {/* Spacer */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => {
+              const newTheme = theme === "dark" ? "light" : "dark";
+              setTheme(newTheme);
+            }}
+          >
+            {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </Button>
         </header>
 
         <div className="flex-1 p-4 md:p-8 overflow-y-auto">

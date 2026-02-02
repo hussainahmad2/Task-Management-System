@@ -135,11 +135,80 @@ export const rolePermissions = mysqlTable("role_permissions", {
 });
 
 
+// Invoices
+export const invoices = mysqlTable("invoices", {
+  id: int("id").primaryKey().autoincrement(),
+  orgId: int("org_id").notNull().references(() => organizations.id),
+  invoiceNumber: varchar("invoice_number", { length: 50 }).notNull(),
+  clientName: text("client_name").notNull(),
+  clientEmail: text("client_email"),
+  clientAddress: text("client_address"),
+  amount: decimal("amount", { precision: 10, scale: 2 }),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
+  issueDate: date("issue_date"),
+  dueDate: date("due_date"),
+  status: varchar("status", { length: 50 }).default("draft"),
+  paymentMethod: varchar("payment_method", { length: 50 }),
+  paymentDate: date("payment_date"),
+  notes: text("notes"),
+  createdById: int("created_by").references(() => employees.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Leave Requests
+export const leaveRequests = mysqlTable("leave_requests", {
+  id: int("id").primaryKey().autoincrement(),
+  employeeId: int("employee_id").notNull().references(() => employees.id),
+  leaveType: varchar("leave_type", { length: 50 }).notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  totalDays: int("total_days").notNull(),
+  reason: text("reason").notNull(),
+  status: varchar("status", { length: 50 }).default("pending"),
+  managerApprovalStatus: varchar("manager_approval_status", { length: 20 }).default("pending"), // pending, approved, rejected
+  hrApprovalStatus: varchar("hr_approval_status", { length: 20 }).default("pending"), // pending, approved, rejected
+  approvedById: int("approved_by").references(() => employees.id),
+  rejectedById: int("rejected_by").references(() => employees.id),
+  managerApprovedById: int("manager_approved_by").references(() => employees.id),
+  managerRejectedById: int("manager_rejected_by").references(() => employees.id),
+  hrApprovedById: int("hr_approved_by").references(() => employees.id),
+  hrRejectedById: int("hr_rejected_by").references(() => employees.id),
+  approvalDate: timestamp("approval_date"),
+  rejectionDate: timestamp("rejection_date"),
+  managerApprovalDate: timestamp("manager_approval_date"),
+  managerRejectionDate: timestamp("manager_rejection_date"),
+  hrApprovalDate: timestamp("hr_approval_date"),
+  hrRejectionDate: timestamp("hr_rejection_date"),
+  managerApprovalNotes: text("manager_approval_notes"),
+  managerRejectionNotes: text("manager_rejection_notes"),
+  hrApprovalNotes: text("hr_approval_notes"),
+  hrRejectionNotes: text("hr_rejection_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+// Audit Logs
+export const auditLogs = mysqlTable("audit_logs", {
+  id: int("id").primaryKey().autoincrement(),
+  tableName: varchar("table_name", { length: 100 }).notNull(),
+  recordId: int("record_id").notNull(),
+  action: varchar("action", { length: 20 }).notNull(), // CREATE, UPDATE, DELETE
+  userId: varchar("user_id", { length: 255 }).references(() => users.id),
+  oldValue: json("old_value"),
+  newValue: json("new_value"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === RELATIONS ===
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   departments: many(departments),
   employees: many(employees),
   tasks: many(tasks),
+  invoices: many(invoices),
 }));
 
 export const employeesRelations = relations(employees, ({ one, many }) => ({
@@ -153,6 +222,29 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
   createdTasks: many(tasks, { relationName: "createdBy" }),
   timeLogs: many(timeLogs),
   performanceMetrics: many(performanceMetrics),
+  createdInvoices: many(invoices, { relationName: "createdByInvoice" }),
+  leaveRequests: many(leaveRequests),
+  approvedLeaveRequests: many(leaveRequests, { relationName: "approvedBy" }),
+  rejectedLeaveRequests: many(leaveRequests, { relationName: "rejectedBy" }),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  organization: one(organizations, { fields: [invoices.orgId], references: [organizations.id] }),
+  createdBy: one(employees, { fields: [invoices.createdById], references: [employees.id], relationName: "createdByInvoice" }),
+}));
+
+export const leaveRequestsRelations = relations(leaveRequests, ({ one }) => ({
+  employee: one(employees, { fields: [leaveRequests.employeeId], references: [employees.id] }),
+  approvedBy: one(employees, { fields: [leaveRequests.approvedById], references: [employees.id], relationName: "approvedBy" }),
+  rejectedBy: one(employees, { fields: [leaveRequests.rejectedById], references: [employees.id], relationName: "rejectedBy" }),
+  managerApprovedBy: one(employees, { fields: [leaveRequests.managerApprovedById], references: [employees.id], relationName: "managerApprovedBy" }),
+  managerRejectedBy: one(employees, { fields: [leaveRequests.managerRejectedById], references: [employees.id], relationName: "managerRejectedBy" }),
+  hrApprovedBy: one(employees, { fields: [leaveRequests.hrApprovedById], references: [employees.id], relationName: "hrApprovedBy" }),
+  hrRejectedBy: one(employees, { fields: [leaveRequests.hrRejectedById], references: [employees.id], relationName: "hrRejectedBy" }),
+}));
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, { fields: [auditLogs.userId], references: [users.id] }),
 }));
 
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
@@ -176,6 +268,9 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, creat
 export const insertTimeLogSchema = createInsertSchema(timeLogs).omit({ id: true, createdAt: true, durationMinutes: true });
 export const insertPermissionSchema = createInsertSchema(permissions).omit({ id: true, createdAt: true });
 export const insertRolePermissionSchema = createInsertSchema(rolePermissions).omit({ id: true, createdAt: true });
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertLeaveRequestSchema = createInsertSchema(leaveRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
 
 // === EXPLICIT TYPES ===
 export type Organization = typeof organizations.$inferSelect;
@@ -191,6 +286,9 @@ export type TimeLog = typeof timeLogs.$inferSelect;
 export type PerformanceMetric = typeof performanceMetrics.$inferSelect;
 export type Permission = typeof permissions.$inferSelect;
 export type RolePermission = typeof rolePermissions.$inferSelect;
+export type Invoice = typeof invoices.$inferSelect;
+export type LeaveRequest = typeof leaveRequests.$inferSelect;
+export type AuditLog = typeof auditLogs.$inferSelect;
 
 export type CreateTaskRequest = z.infer<typeof insertTaskSchema>;
 export type UpdateTaskRequest = Partial<CreateTaskRequest>;
@@ -198,3 +296,6 @@ export type CreateEmployeeRequest = z.infer<typeof insertEmployeeSchema>;
 export type CreateDepartmentRequest = z.infer<typeof insertDepartmentSchema>;
 export type CreatePermissionRequest = z.infer<typeof insertPermissionSchema>;
 export type CreateRolePermissionRequest = z.infer<typeof insertRolePermissionSchema>;
+export type CreateInvoiceRequest = z.infer<typeof insertInvoiceSchema>;
+export type CreateLeaveRequestRequest = z.infer<typeof insertLeaveRequestSchema>;
+export type CreateAuditLogRequest = z.infer<typeof insertAuditLogSchema>;

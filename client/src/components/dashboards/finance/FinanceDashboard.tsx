@@ -1,35 +1,42 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 import { 
-    DollarSign, TrendingUp, TrendingDown, CreditCard, FileText, Download, 
-    Plus, Search, Filter, Calendar, AlertCircle, CheckCircle, Clock,
-    Building2, Receipt, PieChart, BarChart3, ArrowUpRight, ArrowDownRight
+    DollarSign, TrendingUp, TrendingDown, Users, BarChart3, Calendar, 
+    CheckCircle, Clock, AlertCircle, FileText, ArrowUpRight, ArrowDownRight,
+    Receipt, CreditCard, PiggyBank, Wallet
 } from "lucide-react";
-import { useState } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { useTasks } from "@/hooks/use-tasks";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useEmployees } from "@/hooks/use-employees";
+import { useQuery } from "@tanstack/react-query";
 
-const revenueData = [
-    { month: 'Jan', revenue: 45000, expenses: 28000, profit: 17000 },
-    { month: 'Feb', revenue: 52000, expenses: 30000, profit: 22000 },
-    { month: 'Mar', revenue: 48000, expenses: 32000, profit: 16000 },
-    { month: 'Apr', revenue: 55000, expenses: 29000, profit: 26000 },
-    { month: 'May', revenue: 60000, expenses: 35000, profit: 25000 },
-    { month: 'Jun', revenue: 58000, expenses: 33000, profit: 25000 },
+// Mock data - will be replaced with actual API calls
+const monthlyRevenue = [
+    { month: 'Jan', revenue: 45000, expenses: 28000 },
+    { month: 'Feb', revenue: 52000, expenses: 30000 },
+    { month: 'Mar', revenue: 48000, expenses: 29000 },
+    { month: 'Apr', revenue: 61000, expenses: 32000 },
+    { month: 'May', revenue: 55000, expenses: 31000 },
+    { month: 'Jun', revenue: 67000, expenses: 34000 },
 ];
 
-const expenseBreakdown = [
-    { category: 'Salaries', amount: 125000, percentage: 45, color: '#3b82f6' },
-    { category: 'Infrastructure', amount: 35000, percentage: 12, color: '#10b981' },
-    { category: 'Marketing', amount: 28000, percentage: 10, color: '#f59e0b' },
-    { category: 'Software Licenses', amount: 15000, percentage: 5, color: '#ef4444' },
-    { category: 'Office Rent', amount: 42000, percentage: 15, color: '#8b5cf6' },
-    { category: 'Other', amount: 35000, percentage: 13, color: '#94a3b8' },
+const expenseCategories = [
+    { category: 'Salaries', amount: 45000, percentage: 45 },
+    { category: 'Infrastructure', amount: 18000, percentage: 18 },
+    { category: 'Marketing', amount: 12000, percentage: 12 },
+    { category: 'R&D', amount: 15000, percentage: 15 },
+    { category: 'Operations', amount: 10000, percentage: 10 },
+];
+
+const cashFlow = [
+    { week: 'Week 1', inflow: 12000, outflow: 8000 },
+    { week: 'Week 2', inflow: 15000, outflow: 9500 },
+    { week: 'Week 3', inflow: 18000, outflow: 11000 },
+    { week: 'Week 4', inflow: 14000, outflow: 10500 },
 ];
 
 const invoices = [
@@ -39,44 +46,39 @@ const invoices = [
     { id: 4, client: "StartupXYZ", amount: 5000, dueDate: "2024-02-05", status: "Overdue", invoiceNumber: "INV-2024-004" },
 ];
 
-const budgetVsActual = [
-    { category: 'Salaries', budget: 130000, actual: 125000, variance: -5000 },
-    { category: 'Marketing', budget: 30000, actual: 28000, variance: -2000 },
-    { category: 'Infrastructure', budget: 40000, actual: 35000, variance: -5000 },
-    { category: 'Software', budget: 18000, actual: 15000, variance: -3000 },
-];
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export function FinanceDashboard() {
     const { data: orgs } = useOrganizations();
     const activeOrg = orgs?.[0];
+    const { data: tasks } = useTasks(activeOrg?.id);
     const { data: employees } = useEmployees(activeOrg?.id);
-    
-    const [searchTerm, setSearchTerm] = useState("");
-    const [filterStatus, setFilterStatus] = useState("all");
 
-    const totalRevenue = revenueData.reduce((sum, d) => sum + d.revenue, 0);
-    const totalExpenses = revenueData.reduce((sum, d) => sum + d.expenses, 0);
+    // Calculate financial metrics
+    const totalRevenue = 67000;
+    const totalExpenses = 34000;
     const netProfit = totalRevenue - totalExpenses;
-    const profitMargin = ((netProfit / totalRevenue) * 100).toFixed(1);
-    const pendingInvoices = invoices.filter(i => i.status === "Pending" || i.status === "Overdue");
-    const totalPending = pendingInvoices.reduce((sum, i) => sum + i.amount, 0);
-
-    const COLORS = expenseBreakdown.map(e => e.color);
+    const cashBalance = 125000;
+    const pendingInvoices = invoices.filter(inv => inv.status === 'Pending' || inv.status === 'Overdue');
+    const totalPending = pendingInvoices.reduce((sum, inv) => sum + inv.amount, 0);
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 className="text-3xl font-display font-bold tracking-tight">Financial Overview</h2>
-                    <p className="text-muted-foreground">Revenue tracking, expense management, and financial analytics.</p>
+                    <h2 className="text-3xl font-display font-bold tracking-tight">Finance Dashboard</h2>
+                    <p className="text-muted-foreground">Revenue, expenses, cash flow, and invoice management.</p>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" className="gap-2">
-                        <Download className="w-4 h-4" /> Export Report
+                        <Receipt className="w-4 h-4" /> Invoices
+                    </Button>
+                    <Button variant="outline" className="gap-2">
+                        <CreditCard className="w-4 h-4" /> Expenses
                     </Button>
                     <Button className="gap-2 shadow-lg shadow-primary/20">
-                        <Plus className="w-4 h-4" /> New Invoice
+                        <Wallet className="w-4 h-4" /> Reports
                     </Button>
                 </div>
             </div>
@@ -88,9 +90,9 @@ export function FinanceDashboard() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                                <h3 className="text-2xl font-bold mt-1">${(totalRevenue / 1000).toFixed(0)}K</h3>
+                                <h3 className="text-2xl font-bold mt-1">${(totalRevenue / 1000).toFixed(1)}K</h3>
                                 <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
-                                    <ArrowUpRight className="w-3 h-3" /> +12.5% from last quarter
+                                    <ArrowUpRight className="w-3 h-3" /> +12% this month
                                 </p>
                             </div>
                             <DollarSign className="w-8 h-8 text-green-500 opacity-50" />
@@ -103,36 +105,38 @@ export function FinanceDashboard() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">Total Expenses</p>
-                                <h3 className="text-2xl font-bold mt-1">${(totalExpenses / 1000).toFixed(0)}K</h3>
-                                <p className="text-xs text-muted-foreground mt-1">This quarter</p>
+                                <h3 className="text-2xl font-bold mt-1">${(totalExpenses / 1000).toFixed(1)}K</h3>
+                                <p className="text-xs text-muted-foreground mt-1">Controlled spending</p>
                             </div>
                             <CreditCard className="w-8 h-8 text-red-500 opacity-50" />
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-primary">
+                <Card className="border-l-4 border-l-blue-500">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">Net Profit</p>
-                                <h3 className="text-2xl font-bold mt-1">${(netProfit / 1000).toFixed(0)}K</h3>
-                                <p className="text-xs text-green-500 mt-1">Margin: {profitMargin}%</p>
+                                <h3 className="text-2xl font-bold mt-1 text-green-600">${(netProfit / 1000).toFixed(1)}K</h3>
+                                <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+                                    <ArrowUpRight className="w-3 h-3" /> +8% margin
+                                </p>
                             </div>
-                            <TrendingUp className="w-8 h-8 text-primary opacity-50" />
+                            <PiggyBank className="w-8 h-8 text-blue-500 opacity-50" />
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-orange-500">
+                <Card className="border-l-4 border-l-purple-500">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-muted-foreground">Pending Invoices</p>
-                                <h3 className="text-2xl font-bold mt-1">{pendingInvoices.length}</h3>
-                                <p className="text-xs text-orange-500 mt-1">${totalPending.toLocaleString()} unpaid</p>
+                                <p className="text-sm font-medium text-muted-foreground">Cash Balance</p>
+                                <h3 className="text-2xl font-bold mt-1">${(cashBalance / 1000).toFixed(1)}K</h3>
+                                <p className="text-xs text-muted-foreground mt-1">Liquid assets</p>
                             </div>
-                            <FileText className="w-8 h-8 text-orange-500 opacity-50" />
+                            <Wallet className="w-8 h-8 text-purple-500 opacity-50" />
                         </div>
                     </CardContent>
                 </Card>
@@ -140,173 +144,124 @@ export function FinanceDashboard() {
 
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Revenue vs Expenses */}
+                {/* Revenue vs Expenses Chart */}
                 <Card className="lg:col-span-2">
                     <CardHeader>
-                        <CardTitle>Revenue vs Expenses</CardTitle>
-                        <CardDescription>Monthly financial performance</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-[350px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={revenueData}>
-                                    <defs>
-                                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                        </linearGradient>
-                                        <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="month" />
-                                    <YAxis tickFormatter={(value) => `$${value/1000}K`} />
-                                    <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
-                                    <Area type="monotone" dataKey="revenue" stroke="#10b981" fillOpacity={1} fill="url(#colorRevenue)" />
-                                    <Area type="monotone" dataKey="expenses" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpenses)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Expense Breakdown */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Expense Breakdown</CardTitle>
-                        <CardDescription>By category</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-[350px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RechartsPieChart>
-                                    <Pie
-                                        data={expenseBreakdown}
-                                        dataKey="amount"
-                                        nameKey="category"
-                                        cx="50%"
-                                        cy="50%"
-                                        outerRadius={80}
-                                        label
-                                    >
-                                        {expenseBreakdown.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
-                                </RechartsPieChart>
-                            </ResponsiveContainer>
-                        </div>
-                        <div className="mt-4 space-y-2">
-                            {expenseBreakdown.map((item) => (
-                                <div key={item.category} className="flex items-center justify-between text-sm">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                                        <span>{item.category}</span>
-                                    </div>
-                                    <span className="font-medium">${(item.amount / 1000).toFixed(0)}K</span>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Budget vs Actual & Invoices */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Budget vs Actual */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Budget vs Actual</CardTitle>
-                        <CardDescription>Quarterly budget performance</CardDescription>
+                        <CardTitle>Monthly Financials</CardTitle>
+                        <CardDescription>Revenue vs Expenses over the last 6 months</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={budgetVsActual}>
+                                <BarChart data={monthlyRevenue}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="category" />
-                                    <YAxis tickFormatter={(value) => `$${value/1000}K`} />
-                                    <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
-                                    <Bar dataKey="budget" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                    <XAxis dataKey="month" />
+                                    <YAxis />
+                                    <Tooltip formatter={(value) => [`$${value}`, '']} />
+                                    <Bar dataKey="revenue" fill="#10b981" radius={[4, 4, 0, 0]} name="Revenue" />
+                                    <Bar dataKey="expenses" fill="#ef4444" radius={[4, 4, 0, 0]} name="Expenses" />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* Recent Invoices */}
+                {/* Expense Categories */}
                 <Card>
                     <CardHeader>
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                            <div>
-                                <CardTitle>Recent Invoices</CardTitle>
-                                <CardDescription>Track invoice status</CardDescription>
-                            </div>
-                            <div className="flex gap-2 w-full md:w-auto">
-                                <div className="relative flex-1 md:flex-initial">
-                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                    <Input 
-                                        placeholder="Search..." 
-                                        className="pl-9 w-full md:w-48" 
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
-                                </div>
-                                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                                    <SelectTrigger className="w-full md:w-[130px]">
-                                        <SelectValue placeholder="Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All</SelectItem>
-                                        <SelectItem value="Paid">Paid</SelectItem>
-                                        <SelectItem value="Pending">Pending</SelectItem>
-                                        <SelectItem value="Overdue">Overdue</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
+                        <CardTitle>Expense Categories</CardTitle>
+                        <CardDescription>Breakdown of spending by category</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Invoice #</TableHead>
-                                    <TableHead>Client</TableHead>
-                                    <TableHead>Amount</TableHead>
-                                    <TableHead>Due Date</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {invoices.map((invoice) => (
-                                    <TableRow key={invoice.id}>
-                                        <TableCell className="font-mono text-sm">{invoice.invoiceNumber}</TableCell>
-                                        <TableCell className="font-medium">{invoice.client}</TableCell>
-                                        <TableCell>${invoice.amount.toLocaleString()}</TableCell>
-                                        <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
-                                        <TableCell>
-                                            <Badge className={
-                                                invoice.status === "Paid" ? "bg-green-100 text-green-700" :
-                                                invoice.status === "Overdue" ? "bg-red-100 text-red-700" :
-                                                "bg-orange-100 text-orange-700"
-                                            }>
-                                                {invoice.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Button size="sm" variant="ghost">
-                                                <Download className="w-4 h-4" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                        <div className="h-[300px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={expenseCategories}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        outerRadius={80}
+                                        fill="#8884d8"
+                                        dataKey="percentage"
+                                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                    >
+                                        {expenseCategories.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(value, name, props) => [`$${props.payload.amount}`, name]} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Cash Flow & Invoices */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Cash Flow */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Cash Flow</CardTitle>
+                        <CardDescription>Weekly cash inflow vs outflow</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="h-[250px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={cashFlow}>
+                                    <defs>
+                                        <linearGradient id="colorInflow" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorOutflow" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                    <XAxis dataKey="week" />
+                                    <YAxis />
+                                    <Tooltip formatter={(value) => [`$${value}`, '']} />
+                                    <Area type="monotone" dataKey="inflow" stroke="hsl(var(--success))" fillOpacity={1} fill="url(#colorInflow)" name="Inflow" />
+                                    <Area type="monotone" dataKey="outflow" stroke="hsl(var(--destructive))" fillOpacity={0.3} fill="url(#colorOutflow)" name="Outflow" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Outstanding Invoices */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Outstanding Invoices</CardTitle>
+                        <CardDescription>Invoices pending payment</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {invoices.map((invoice) => (
+                                <div key={invoice.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                    <div>
+                                        <h4 className="font-medium">{invoice.client}</h4>
+                                        <p className="text-sm text-muted-foreground">{invoice.invoiceNumber}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-medium">${invoice.amount}</p>
+                                        <p className="text-sm text-muted-foreground">{invoice.dueDate}</p>
+                                    </div>
+                                    <Badge className={
+                                        invoice.status === "Paid" 
+                                            ? "bg-green-100 text-green-700" 
+                                            : invoice.status === "Overdue"
+                                                ? "bg-red-100 text-red-700"
+                                                : "bg-yellow-100 text-yellow-700"
+                                    }>
+                                        {invoice.status}
+                                    </Badge>
+                                </div>
+                            ))}
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -341,6 +296,27 @@ export function FinanceDashboard() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Budget vs Actual */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Budget vs Actual</CardTitle>
+                    <CardDescription>Comparison of budgeted vs actual expenses</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={expenseCategories}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="category" />
+                                <YAxis />
+                                <Tooltip formatter={(value) => [`$${value}`, '']} />
+                                <Line type="monotone" dataKey="amount" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} name="Actual" />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

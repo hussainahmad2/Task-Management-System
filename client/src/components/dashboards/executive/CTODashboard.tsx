@@ -1,45 +1,54 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { 
-    Code2, GitBranch, Server, Zap, TrendingUp, 
-    CheckCircle, Clock, AlertCircle, Users, 
-    Activity, Shield, Cpu, Database, ArrowUpRight
+    Rocket, TrendingUp, Users, Star, Target, 
+    BarChart3, Calendar, CheckCircle, Clock, 
+    AlertCircle, Zap, FileText, ArrowUpRight,
+    Server, Database, GitBranch, Code, Bug, Shield
 } from "lucide-react";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, LineChart, Line } from "recharts";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { useTasks } from "@/hooks/use-tasks";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { useEmployees } from "@/hooks/use-employees";
+import { useQuery } from "@tanstack/react-query";
 
-const sprintProgress = [
-    { day: 'Mon', completed: 12, planned: 15 },
-    { day: 'Tue', completed: 18, planned: 20 },
-    { day: 'Wed', completed: 22, planned: 25 },
-    { day: 'Thu', completed: 28, planned: 30 },
-    { day: 'Fri', completed: 32, planned: 35 },
+// Mock data - will be replaced with actual API calls
+const deploymentVelocity = [
+    { week: 'W1', deployments: 12, successful: 11 },
+    { week: 'W2', deployments: 15, successful: 14 },
+    { week: 'W3', deployments: 18, successful: 17 },
+    { week: 'W4', deployments: 22, successful: 20 },
+    { week: 'W5', deployments: 19, successful: 18 },
+    { week: 'W6', deployments: 25, successful: 24 },
 ];
 
-const codeMetrics = [
-    { month: 'Oct', commits: 1240, prs: 85 },
-    { month: 'Nov', commits: 1380, prs: 92 },
-    { month: 'Dec', commits: 1520, prs: 98 },
-    { month: 'Jan', commits: 1680, prs: 105 },
+const systemPerformance = [
+    { metric: 'Uptime', value: 99.9, change: '+0.2%', trend: 'up' },
+    { metric: 'Response Time', value: 120, unit: 'ms', change: '-15ms', trend: 'down' },
+    { metric: 'Throughput', value: 1245, unit: 'req/s', change: '+12%', trend: 'up' },
+    { metric: 'Error Rate', value: 0.02, unit: '%', change: '-0.01%', trend: 'down' },
 ];
 
-const systemHealth = [
-    { service: 'API Server', status: 'Healthy', uptime: '99.98%', latency: '45ms' },
-    { service: 'Database', status: 'Healthy', uptime: '99.99%', latency: '12ms' },
-    { service: 'CDN', status: 'Healthy', uptime: '99.95%', latency: '28ms' },
-    { service: 'Auth Service', status: 'Warning', uptime: '99.85%', latency: '120ms' },
+const techStack = [
+    { technology: 'React', percentage: 25 },
+    { technology: 'Node.js', percentage: 20 },
+    { technology: 'MySQL', percentage: 18 },
+    { technology: 'Redis', percentage: 12 },
+    { technology: 'Docker', percentage: 10 },
+    { technology: 'AWS', percentage: 15 },
 ];
 
-const teamPerformance = [
-    { team: 'Backend', velocity: 85, prs: 24, bugs: 2 },
-    { team: 'Frontend', velocity: 78, prs: 18, bugs: 3 },
-    { team: 'DevOps', velocity: 92, prs: 12, bugs: 1 },
-    { team: 'QA', velocity: 88, prs: 8, bugs: 0 },
+const openIssues = [
+    { id: 1, title: "API Rate Limiting", priority: "High", team: "Backend", severity: "critical" },
+    { id: 2, title: "Frontend Performance", priority: "Medium", team: "Frontend", severity: "high" },
+    { id: 3, title: "Database Optimization", priority: "Low", team: "DevOps", severity: "medium" },
+    { id: 4, title: "Security Patch", priority: "Critical", team: "Security", severity: "critical" },
 ];
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#FF6B6B'];
 
 export function CTODashboard() {
     const { data: orgs } = useOrganizations();
@@ -47,42 +56,56 @@ export function CTODashboard() {
     const { data: tasks } = useTasks(activeOrg?.id);
     const { data: employees } = useEmployees(activeOrg?.id);
 
-    const engineeringTasks = tasks?.filter(t => t.status === "in_progress" || t.status === "review") || [];
-    const criticalTasks = tasks?.filter(t => t.priority === "critical") || [];
-    const openPRs = 14;
-    const sprintCompletion = 82;
+    // Filter tech-related tasks
+    const techTasks = tasks?.filter(t => 
+        t.title.toLowerCase().includes('api') || 
+        t.title.toLowerCase().includes('frontend') || 
+        t.title.toLowerCase().includes('backend') ||
+        t.title.toLowerCase().includes('deploy')
+    ) || [];
+
+    const totalDeployments = 25;
+    const successfulDeployments = 24;
+    const successRate = Math.round((successfulDeployments / totalDeployments) * 100);
+    const devTeamSize = employees?.filter(e => 
+        e.designation?.toLowerCase().includes('engineer') || 
+        e.designation?.toLowerCase().includes('developer')
+    ).length || 12;
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 className="text-3xl font-display font-bold tracking-tight">CTO Overview</h2>
-                    <p className="text-muted-foreground">Engineering performance, system health, and technical roadmap status.</p>
+                    <h2 className="text-3xl font-display font-bold tracking-tight">Technology Dashboard</h2>
+                    <p className="text-muted-foreground">System performance, deployment velocity, and engineering metrics.</p>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" className="gap-2">
-                        <Activity className="w-4 h-4" /> System Status
+                        <Server className="w-4 h-4" /> Infrastructure
+                    </Button>
+                    <Button variant="outline" className="gap-2">
+                        <Shield className="w-4 h-4" /> Security
                     </Button>
                     <Button className="gap-2 shadow-lg shadow-primary/20">
-                        <Code2 className="w-4 h-4" /> Tech Roadmap
+                        <GitBranch className="w-4 h-4" /> Deploy
                     </Button>
                 </div>
             </div>
 
             {/* Key Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="border-l-4 border-l-primary">
+                <Card className="border-l-4 border-l-green-500">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-muted-foreground">Sprint Progress</p>
-                                <h3 className="text-2xl font-bold mt-1">{sprintCompletion}%</h3>
+                                <p className="text-sm font-medium text-muted-foreground">Deployment Success</p>
+                                <h3 className="text-2xl font-bold mt-1">{successRate}%</h3>
                                 <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
-                                    <ArrowUpRight className="w-3 h-3" /> On track
+                                    <ArrowUpRight className="w-3 h-3" /> +5% this month
                                 </p>
                             </div>
-                            <Target className="w-8 h-8 text-primary opacity-50" />
+                            <Rocket className="w-8 h-8 text-green-500 opacity-50" />
                         </div>
                     </CardContent>
                 </Card>
@@ -91,24 +114,11 @@ export function CTODashboard() {
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-muted-foreground">Open PRs</p>
-                                <h3 className="text-2xl font-bold mt-1">{openPRs}</h3>
-                                <p className="text-xs text-orange-500 mt-1">Needing review</p>
+                                <p className="text-sm font-medium text-muted-foreground">Engineers</p>
+                                <h3 className="text-2xl font-bold mt-1">{devTeamSize}</h3>
+                                <p className="text-xs text-muted-foreground mt-1">Active developers</p>
                             </div>
-                            <GitBranch className="w-8 h-8 text-blue-500 opacity-50" />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-l-4 border-l-green-500">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">System Uptime</p>
-                                <h3 className="text-2xl font-bold mt-1 text-green-600">99.98%</h3>
-                                <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
-                            </div>
-                            <Server className="w-8 h-8 text-green-500 opacity-50" />
+                            <Users className="w-8 h-8 text-blue-500 opacity-50" />
                         </div>
                     </CardContent>
                 </Card>
@@ -117,11 +127,24 @@ export function CTODashboard() {
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-muted-foreground">Active Engineers</p>
-                                <h3 className="text-2xl font-bold mt-1">{engineeringTasks.length}</h3>
-                                <p className="text-xs text-muted-foreground mt-1">Working on tasks</p>
+                                <p className="text-sm font-medium text-muted-foreground">System Uptime</p>
+                                <h3 className="text-2xl font-bold mt-1">99.9%</h3>
+                                <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
                             </div>
-                            <Users className="w-8 h-8 text-purple-500 opacity-50" />
+                            <Server className="w-8 h-8 text-purple-500 opacity-50" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-l-4 border-l-orange-500">
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Open Issues</p>
+                                <h3 className="text-2xl font-bold mt-1">{techTasks.length}</h3>
+                                <p className="text-xs text-muted-foreground mt-1">Avg resolution: 2.3 days</p>
+                            </div>
+                            <Bug className="w-8 h-8 text-orange-500 opacity-50" />
                         </div>
                     </CardContent>
                 </Card>
@@ -129,106 +152,122 @@ export function CTODashboard() {
 
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Sprint Progress */}
+                {/* Deployment Velocity Chart */}
                 <Card className="lg:col-span-2">
                     <CardHeader>
-                        <CardTitle>Sprint Progress</CardTitle>
-                        <CardDescription>Daily task completion vs. planned</CardDescription>
+                        <CardTitle>Deployment Velocity</CardTitle>
+                        <CardDescription>Successful deployments vs total deployments per week</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={sprintProgress}>
-                                    <defs>
-                                        <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
+                                <BarChart data={deploymentVelocity}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="day" />
+                                    <XAxis dataKey="week" />
                                     <YAxis />
                                     <Tooltip />
-                                    <Area type="monotone" dataKey="completed" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorCompleted)" />
-                                    <Area type="monotone" dataKey="planned" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.2} />
-                                </AreaChart>
+                                    <Bar dataKey="deployments" fill="#94a3b8" radius={[4, 4, 0, 0]} name="Total Deployments" />
+                                    <Bar dataKey="successful" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Successful" />
+                                </BarChart>
                             </ResponsiveContainer>
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* Code Metrics */}
+                {/* System Performance */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Code Activity</CardTitle>
+                        <CardTitle>System Performance</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={codeMetrics}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="month" />
-                                    <YAxis />
-                                    <Tooltip />
-                                    <Line type="monotone" dataKey="commits" stroke="hsl(var(--primary))" strokeWidth={2} />
-                                    <Line type="monotone" dataKey="prs" stroke="#10b981" strokeWidth={2} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
+                    <CardContent className="space-y-4">
+                        {systemPerformance.map((metric) => (
+                            <div key={metric.metric} className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                    <span className="font-medium">{metric.metric}</span>
+                                    <span className="font-bold">{metric.value}{metric.unit || '%'}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs">
+                                    <span className={`text-${metric.trend === 'up' ? 'green' : 'red'}-500`}>
+                                        {metric.change}
+                                    </span>
+                                    {metric.trend === 'up' ? (
+                                        <TrendingUp className="w-3 h-3 text-green-500" />
+                                    ) : (
+                                        <TrendingUp className="w-3 h-3 text-red-500 rotate-180" />
+                                    )}
+                                </div>
+                                <Progress value={metric.metric === 'Error Rate' ? 100 - metric.value * 100 : metric.value} className="h-2" />
+                            </div>
+                        ))}
                     </CardContent>
                 </Card>
             </div>
 
-            {/* System Health & Team Performance */}
+            {/* Tech Stack & Open Issues */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* System Health */}
+                {/* Tech Stack Distribution */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>System Health</CardTitle>
-                        <CardDescription>Infrastructure status and performance</CardDescription>
+                        <CardTitle>Tech Stack Distribution</CardTitle>
+                        <CardDescription>Technology usage across the platform</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-4">
-                            {systemHealth.map((service) => (
-                                <div key={service.service} className="flex items-center justify-between p-3 border rounded-lg">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-3 h-3 rounded-full ${service.status === 'Healthy' ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                                        <div>
-                                            <p className="font-medium text-sm">{service.service}</p>
-                                            <p className="text-xs text-muted-foreground">{service.latency}</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <Badge className={service.status === 'Healthy' ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}>
-                                            {service.status}
-                                        </Badge>
-                                        <p className="text-xs text-muted-foreground mt-1">{service.uptime}</p>
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="h-[250px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={techStack}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        outerRadius={80}
+                                        fill="#8884d8"
+                                        dataKey="percentage"
+                                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                    >
+                                        {techStack.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(value) => [`${value}%`, '']} />
+                                </PieChart>
+                            </ResponsiveContainer>
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* Team Performance */}
+                {/* Open Issues */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Team Performance</CardTitle>
-                        <CardDescription>Engineering team velocity and metrics</CardDescription>
+                        <CardTitle>Open Technical Issues</CardTitle>
+                        <CardDescription>Critical and high priority items</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            {teamPerformance.map((team) => (
-                                <div key={team.team} className="space-y-2">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="font-medium">{team.team}</span>
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-muted-foreground">{team.prs} PRs</span>
-                                            <Badge variant={team.bugs === 0 ? "default" : "destructive"}>{team.bugs} bugs</Badge>
+                            {openIssues.map((issue) => (
+                                <div key={issue.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <h4 className="font-medium">{issue.title}</h4>
+                                            <Badge className={
+                                                issue.severity === "critical" 
+                                                    ? "bg-red-100 text-red-700" 
+                                                    : issue.severity === "high"
+                                                        ? "bg-orange-100 text-orange-700"
+                                                        : "bg-yellow-100 text-yellow-700"
+                                            }>
+                                                {issue.severity.charAt(0).toUpperCase() + issue.severity.slice(1)}
+                                            </Badge>
+                                        </div>
+                                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                            <span className="flex items-center gap-1">
+                                                <Users className="w-3 h-3" /> {issue.team}
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <Target className="w-3 h-3" /> {issue.priority}
+                                            </span>
                                         </div>
                                     </div>
-                                    <Progress value={team.velocity} className="h-2" />
-                                    <p className="text-xs text-muted-foreground">Velocity: {team.velocity}%</p>
                                 </div>
                             ))}
                         </div>
@@ -236,33 +275,78 @@ export function CTODashboard() {
                 </Card>
             </div>
 
-            {/* Critical Issues */}
-            {criticalTasks.length > 0 && (
-                <Card className="border-orange-200 dark:border-orange-800">
+            {/* Security & Compliance */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
-                            <AlertCircle className="w-5 h-5" />
-                            Critical Issues
+                        <CardTitle className="flex items-center gap-2">
+                            <Shield className="w-5 h-5" />
+                            Security Status
                         </CardTitle>
-                        <CardDescription>High-priority items requiring immediate attention</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-3">
-                            {criticalTasks.slice(0, 3).map((task) => (
-                                <div key={task.id} className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/50 rounded-lg">
-                                    <div>
-                                        <p className="font-medium text-sm">{task.title}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {task.dueDate ? `Due: ${new Date(task.dueDate).toLocaleDateString()}` : 'No due date'}
-                                        </p>
-                                    </div>
-                                    <Badge variant="destructive">Critical</Badge>
-                                </div>
-                            ))}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm">Vulnerability Scan</span>
+                                <Badge variant="secondary">Clean</Badge>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm">Penetration Test</span>
+                                <Badge variant="secondary">Passed</Badge>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm">Dependency Updates</span>
+                                <Badge variant="secondary">Auto</Badge>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm">Code Review Coverage</span>
+                                <Badge variant="secondary">98%</Badge>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
-            )}
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Database className="w-5 h-5" />
+                            Infrastructure Health
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm">Database Load</span>
+                                <div className="flex items-center gap-2">
+                                    <Progress value={45} className="w-24 h-2" />
+                                    <span className="text-xs">45%</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm">Cache Hit Rate</span>
+                                <div className="flex items-center gap-2">
+                                    <Progress value={92} className="w-24 h-2" />
+                                    <span className="text-xs">92%</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm">CDN Performance</span>
+                                <div className="flex items-center gap-2">
+                                    <Progress value={98} className="w-24 h-2" />
+                                    <span className="text-xs">98%</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm">API Response Time</span>
+                                <div className="flex items-center gap-2">
+                                    <Progress value={75} className="w-24 h-2" />
+                                    <span className="text-xs">120ms</span>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }

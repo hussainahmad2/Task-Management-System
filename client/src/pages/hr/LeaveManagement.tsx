@@ -14,37 +14,151 @@ import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { useOrganizations } from "@/hooks/use-organizations";
+import { useEmployees } from "@/hooks/use-employees";
+import { useLeaveRequests } from "@/hooks/use-leave-requests";
+import { useApproveLeaveRequest, useRejectLeaveRequest } from "@/hooks/use-leave-requests";
+import { useToast } from "@/hooks/use-toast";
 
-// Mock data
-const pendingLeaves = [
-    { id: 1, employee: "Sarah Williams", type: "Sick Leave", dates: "Jan 12-14", days: 3, status: "Pending", avatar: "SW", department: "Engineering" },
-    { id: 2, employee: "Mike Johnson", type: "Vacation", dates: "Feb 1-5", days: 5, status: "Pending", avatar: "MJ", department: "Sales" },
-    { id: 3, employee: "Emily Davis", type: "Personal", dates: "Jan 20", days: 1, status: "Pending", avatar: "ED", department: "Marketing" },
-    { id: 4, employee: "David Chen", type: "Sick Leave", dates: "Jan 25-26", days: 2, status: "Pending", avatar: "DC", department: "Engineering" },
-];
-
-const approvedLeaves = [
-    { id: 5, employee: "John Smith", type: "Vacation", dates: "Jan 15-22", days: 8, status: "Approved", avatar: "JS", department: "HR" },
-    { id: 6, employee: "Lisa Brown", type: "Personal", dates: "Jan 18", days: 1, status: "Approved", avatar: "LB", department: "Finance" },
-];
-
-const leaveStats = [
-    { month: 'Jan', approved: 12, pending: 5, rejected: 2 },
-    { month: 'Feb', approved: 8, pending: 3, rejected: 1 },
-    { month: 'Mar', approved: 15, pending: 4, rejected: 0 },
-    { month: 'Apr', approved: 10, pending: 6, rejected: 2 },
-];
-
-const leaveTypes = [
-    { type: "Sick Leave", used: 45, total: 60, color: "bg-red-500" },
-    { type: "Vacation", used: 120, total: 180, color: "bg-blue-500" },
-    { type: "Personal", used: 15, total: 30, color: "bg-purple-500" },
-    { type: "Maternity/Paternity", used: 0, total: 90, color: "bg-pink-500" },
-];
+// Helper function to format dates as MM DD-DD or single day
+const formatDateRange = (startDate: string | Date, endDate: string | Date) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const startMonth = start.toLocaleString('default', { month: 'short' });
+    const startDay = start.getDate();
+    
+    if (start.toDateString() === end.toDateString()) {
+        return `${startMonth} ${startDay}`;
+    } else {
+        const endDay = end.getDate();
+        return `${startMonth} ${startDay}-${endDay}`;
+    }
+};
 
 export default function LeaveManagement() {
+    const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState("all");
+    
+    // Get organization and employees
+    const { data: orgs } = useOrganizations();
+    const activeOrg = orgs?.[0];
+    const { data: employees } = useEmployees(activeOrg?.id);
+    
+    // Get mutation hooks for approving/rejecting
+    const { mutateAsync: approveLeave } = useApproveLeaveRequest();
+    const { mutateAsync: rejectLeave } = useRejectLeaveRequest();
+    
+    // Define types for the query result
+    type LeaveRequestData = {
+        allRequests: any[];
+        pendingLeaves: any[];
+        approvedLeaves: any[];
+        rejectedLeaves: any[];
+        leaveStats: { month: string; approved: number; pending: number; rejected: number }[];
+        leaveTypes: { type: string; used: number; total: number; color: string }[];
+    };
+    
+    // Fetch all leave requests for the organization
+    const { data: allLeaveRequests, isLoading } = useQuery<LeaveRequestData>({
+        queryKey: ['allLeaveRequests'],
+        queryFn: async () => {
+            if (!activeOrg?.id) return { allRequests: [], pendingLeaves: [], approvedLeaves: [], rejectedLeaves: [], leaveStats: [], leaveTypes: [] };
+            
+            // Get all employees in the organization
+            const employeesRes = await fetch(`/api/organizations/${activeOrg.id}/employees`);
+            if (!employeesRes.ok) return { allRequests: [], pendingLeaves: [], approvedLeaves: [], rejectedLeaves: [], leaveStats: [], leaveTypes: [] };
+            const employeesData = await employeesRes.json();
+            
+            // Get leave requests for all employees
+            const allRequests = [];
+            for (const emp of employeesData) {
+                const leaveRes = await fetch(`/api/employees/${emp.id}/leave-requests`);
+                if (leaveRes.ok) {
+                    const requests = await leaveRes.json();
+                    allRequests.push(...requests);
+                }
+            }
+            
+            // Process the leave requests
+            const pendingLeaves = allRequests.filter((lr: any) => lr.status === 'pending');
+            const approvedLeaves = allRequests.filter((lr: any) => lr.status === 'approved');
+            const rejectedLeaves = allRequests.filter((lr: any) => lr.status === 'rejected');
+            
+            // Create leave stats (simplified version)
+            const leaveStats = [
+                { month: 'Jan', approved: approvedLeaves.filter((lr: any) => new Date(lr.createdAt).getMonth() === 0).length, 
+                  pending: pendingLeaves.filter((lr: any) => new Date(lr.createdAt).getMonth() === 0).length, 
+                  rejected: rejectedLeaves.filter((lr: any) => new Date(lr.createdAt).getMonth() === 0).length },
+                { month: 'Feb', approved: approvedLeaves.filter((lr: any) => new Date(lr.createdAt).getMonth() === 1).length, 
+                  pending: pendingLeaves.filter((lr: any) => new Date(lr.createdAt).getMonth() === 1).length, 
+                  rejected: rejectedLeaves.filter((lr: any) => new Date(lr.createdAt).getMonth() === 1).length },
+                { month: 'Mar', approved: approvedLeaves.filter((lr: any) => new Date(lr.createdAt).getMonth() === 2).length, 
+                  pending: pendingLeaves.filter((lr: any) => new Date(lr.createdAt).getMonth() === 2).length, 
+                  rejected: rejectedLeaves.filter((lr: any) => new Date(lr.createdAt).getMonth() === 2).length },
+                { month: 'Apr', approved: approvedLeaves.filter((lr: any) => new Date(lr.createdAt).getMonth() === 3).length, 
+                  pending: pendingLeaves.filter((lr: any) => new Date(lr.createdAt).getMonth() === 3).length, 
+                  rejected: rejectedLeaves.filter((lr: any) => new Date(lr.createdAt).getMonth() === 3).length },
+            ];
+            
+            // Simplified leave types based on real data
+            const leaveTypes = [
+                { type: "Sick Leave", used: allRequests.filter((lr: any) => lr.leaveType === 'Sick').length, total: 60, color: "bg-red-500" },
+                { type: "Vacation", used: allRequests.filter((lr: any) => lr.leaveType === 'Vacation').length, total: 180, color: "bg-blue-500" },
+                { type: "Personal", used: allRequests.filter((lr: any) => lr.leaveType === 'Personal').length, total: 30, color: "bg-purple-500" },
+                { type: "Maternity/Paternity", used: allRequests.filter((lr: any) => lr.leaveType === 'Maternity').length, total: 90, color: "bg-pink-500" },
+            ];
+            
+            return { allRequests, pendingLeaves, approvedLeaves, rejectedLeaves, leaveStats, leaveTypes };
+        },
+        enabled: !!activeOrg?.id
+    });
+    
+    // Extract data from the query result
+    const pendingLeaves = allLeaveRequests?.pendingLeaves || [];
+    const approvedLeaves = allLeaveRequests?.approvedLeaves || [];
+    const rejectedLeaves = allLeaveRequests?.rejectedLeaves || [];
+    const leaveStats = allLeaveRequests?.leaveStats || [];
+    const leaveTypes = allLeaveRequests?.leaveTypes || [];
+    
+    // Handler for approving a leave request
+    const handleApproveLeave = async (id: number) => {
+        try {
+            await approveLeave({ id });
+            toast({
+                title: "Success",
+                description: "Leave request approved successfully.",
+            });
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to approve leave request.",
+                variant: "destructive",
+            });
+        }
+    };
+    
+    // Handler for rejecting a leave request
+    const handleRejectLeave = async (id: number) => {
+        const reason = prompt("Please provide a reason for rejection:");
+        if (reason) {
+            try {
+                await rejectLeave({ id, rejectionReason: reason });
+                toast({
+                    title: "Success",
+                    description: "Leave request rejected successfully.",
+                });
+            } catch (error) {
+                toast({
+                    title: "Error",
+                    description: "Failed to reject leave request.",
+                    variant: "destructive",
+                });
+            }
+        }
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -66,7 +180,7 @@ export default function LeaveManagement() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">Pending Requests</p>
-                                <h3 className="text-2xl font-bold mt-1">{pendingLeaves.length}</h3>
+                                <h3 className="text-2xl font-bold mt-1">{isLoading ? '...' : pendingLeaves.length}</h3>
                                 <p className="text-xs text-orange-500 mt-1">Action Required</p>
                             </div>
                             <Clock className="w-8 h-8 text-orange-500 opacity-50" />
@@ -78,7 +192,7 @@ export default function LeaveManagement() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">Approved This Month</p>
-                                <h3 className="text-2xl font-bold mt-1">{approvedLeaves.length}</h3>
+                                <h3 className="text-2xl font-bold mt-1">{isLoading ? '...' : approvedLeaves.length}</h3>
                                 <p className="text-xs text-green-500 mt-1">+2 from last month</p>
                             </div>
                             <CheckCircle className="w-8 h-8 text-green-500 opacity-50" />
@@ -102,7 +216,7 @@ export default function LeaveManagement() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-muted-foreground">On Leave Today</p>
-                                <h3 className="text-2xl font-bold mt-1">8</h3>
+                                <h3 className="text-2xl font-bold mt-1">{isLoading ? '...' : pendingLeaves.length}</h3>
                                 <p className="text-xs text-muted-foreground mt-1">Active leaves</p>
                             </div>
                             <Users className="w-8 h-8 text-purple-500 opacity-50" />
@@ -141,7 +255,7 @@ export default function LeaveManagement() {
                         <CardTitle>Leave Balance Overview</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {leaveTypes.map((lt) => {
+                        {leaveTypes.map((lt: any) => {
                             const percentage = (lt.used / lt.total) * 100;
                             return (
                                 <div key={lt.type} className="space-y-2">
@@ -203,22 +317,22 @@ export default function LeaveManagement() {
                         </TabsList>
                         <TabsContent value="pending" className="mt-6">
                             <div className="space-y-4">
-                                {pendingLeaves.map((leave) => (
+                                {pendingLeaves.map((leave: any) => (
                                     <div key={leave.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                                         <div className="flex items-center gap-4">
                                             <Avatar className="h-10 w-10">
                                                 <AvatarFallback className="bg-primary/10 text-primary">
-                                                    {leave.avatar}
+                                                    {leave.employee?.firstName?.charAt(0) + leave.employee?.lastName?.charAt(0) || 'NA'}
                                                 </AvatarFallback>
                                             </Avatar>
                                             <div>
-                                                <p className="font-medium">{leave.employee}</p>
-                                                <p className="text-sm text-muted-foreground">{leave.department}</p>
+                                                <p className="font-medium">{leave.employee?.firstName} {leave.employee?.lastName}</p>
+                                                <p className="text-sm text-muted-foreground">{leave.employee?.department?.name || 'N/A'}</p>
                                             </div>
                                             <div className="ml-4">
-                                                <p className="text-sm font-medium">{leave.type}</p>
+                                                <p className="text-sm font-medium">{leave.leaveType}</p>
                                                 <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                                    <Calendar className="w-3 h-3" /> {leave.dates} ({leave.days} days)
+                                                    <Calendar className="w-3 h-3" /> {formatDateRange(leave.startDate, leave.endDate)} ({leave.totalDays} days)
                                                 </p>
                                             </div>
                                         </div>
@@ -227,10 +341,7 @@ export default function LeaveManagement() {
                                             size="sm" 
                                             variant="outline" 
                                             className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                            onClick={() => {
-                                                // In real app, would call API to approve leave
-                                                alert(`Leave request for ${leave.employee} has been approved`);
-                                            }}
+                                            onClick={() => handleApproveLeave(leave.id)}
                                         >
                                             <CheckCircle className="w-4 h-4 mr-1" /> Approve
                                         </Button>
@@ -238,13 +349,7 @@ export default function LeaveManagement() {
                                             size="sm" 
                                             variant="outline" 
                                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                            onClick={() => {
-                                                const reason = prompt("Please provide a reason for rejection:");
-                                                if (reason) {
-                                                    // In real app, would call API to reject leave with reason
-                                                    alert(`Leave request for ${leave.employee} has been rejected. Reason: ${reason}`);
-                                                }
-                                            }}
+                                            onClick={() => handleRejectLeave(leave.id)}
                                         >
                                             <XCircle className="w-4 h-4 mr-1" /> Reject
                                         </Button>
@@ -255,22 +360,22 @@ export default function LeaveManagement() {
                         </TabsContent>
                         <TabsContent value="approved" className="mt-6">
                             <div className="space-y-4">
-                                {approvedLeaves.map((leave) => (
+                                {approvedLeaves.map((leave: any) => (
                                     <div key={leave.id} className="flex items-center justify-between p-4 border rounded-lg">
                                         <div className="flex items-center gap-4">
                                             <Avatar className="h-10 w-10">
                                                 <AvatarFallback className="bg-green-100 text-green-700">
-                                                    {leave.avatar}
+                                                    {leave.employee?.firstName?.charAt(0) + leave.employee?.lastName?.charAt(0) || 'NA'}
                                                 </AvatarFallback>
                                             </Avatar>
                                             <div>
-                                                <p className="font-medium">{leave.employee}</p>
-                                                <p className="text-sm text-muted-foreground">{leave.department}</p>
+                                                <p className="font-medium">{leave.employee?.firstName} {leave.employee?.lastName}</p>
+                                                <p className="text-sm text-muted-foreground">{leave.employee?.department?.name || 'N/A'}</p>
                                             </div>
                                             <div className="ml-4">
-                                                <p className="text-sm font-medium">{leave.type}</p>
+                                                <p className="text-sm font-medium">{leave.leaveType}</p>
                                                 <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                                    <Calendar className="w-3 h-3" /> {leave.dates} ({leave.days} days)
+                                                    <Calendar className="w-3 h-3" /> {formatDateRange(leave.startDate, leave.endDate)} ({leave.totalDays} days)
                                                 </p>
                                             </div>
                                         </div>
@@ -294,28 +399,28 @@ export default function LeaveManagement() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {[...pendingLeaves, ...approvedLeaves].map((leave) => (
+                                    {[...pendingLeaves, ...approvedLeaves].map((leave: any) => (
                                         <TableRow key={leave.id}>
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
                                                     <Avatar className="h-8 w-8">
-                                                        <AvatarFallback>{leave.avatar}</AvatarFallback>
+                                                        <AvatarFallback>{leave.employee?.firstName?.charAt(0) + leave.employee?.lastName?.charAt(0) || 'NA'}</AvatarFallback>
                                                     </Avatar>
-                                                    {leave.employee}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>{leave.type}</TableCell>
-                                            <TableCell>{leave.dates}</TableCell>
-                                            <TableCell>{leave.days}</TableCell>
-                                            <TableCell>{leave.department}</TableCell>
-                                            <TableCell>
-                                                <Badge className={leave.status === "Approved" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}>
-                                                    {leave.status}
-                                                </Badge>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
+                                                    {leave.employee?.firstName} {leave.employee?.lastName}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>{leave.leaveType}</TableCell>
+                                        <TableCell>{formatDateRange(leave.startDate, leave.endDate)}</TableCell>
+                                        <TableCell>{leave.totalDays}</TableCell>
+                                        <TableCell>{leave.employee?.department?.name || 'N/A'}</TableCell>
+                                        <TableCell>
+                                            <Badge className={leave.status === "approved" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}>
+                                                {leave.status.charAt(0).toUpperCase() + leave.status.slice(1)}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
                             </Table>
                         </TabsContent>
                     </Tabs>

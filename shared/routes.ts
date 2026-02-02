@@ -5,12 +5,18 @@ import {
   insertOrganizationSchema,
   insertDepartmentSchema,
   insertTimeLogSchema,
+  insertInvoiceSchema,
+  insertLeaveRequestSchema,
+  insertAuditLogSchema,
   tasks,
   employees,
   organizations,
   departments,
   performanceMetrics,
-  timeLogs
+  timeLogs,
+  invoices,
+  leaveRequests,
+  auditLogs
 } from './schema';
 
 // Shared error schemas
@@ -164,6 +170,134 @@ export const api = {
       path: '/api/employees/:id/performance',
       responses: {
         200: z.array(z.custom<typeof performanceMetrics.$inferSelect>()),
+      }
+    }
+  },
+
+  // === Financial ===
+  invoices: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/organizations/:orgId/invoices',
+      responses: {
+        200: z.array(z.custom<typeof invoices.$inferSelect & { createdBy: any }>()),
+      }
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/invoices/:id',
+      responses: {
+        200: z.custom<typeof invoices.$inferSelect & { createdBy: any }>(),
+        404: errorSchemas.notFound,
+      }
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/organizations/:orgId/invoices',
+      input: insertInvoiceSchema.omit({ orgId: true, createdById: true }),
+      responses: {
+        201: z.custom<typeof invoices.$inferSelect>(),
+        400: errorSchemas.validation,
+      }
+    },
+    update: {
+      method: 'PATCH' as const,
+      path: '/api/invoices/:id',
+      input: insertInvoiceSchema.partial(),
+      responses: {
+        200: z.custom<typeof invoices.$inferSelect>(),
+        404: errorSchemas.notFound,
+      }
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/invoices/:id',
+      responses: {
+        204: z.void(),
+      }
+    }
+  },
+
+  // === HR ===
+  leaveRequests: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/employees/:employeeId/leave-requests',
+      responses: {
+        200: z.array(z.custom<typeof leaveRequests.$inferSelect & { employee: any, approvedBy: any, rejectedBy: any }>()),
+      }
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/leave-requests/:id',
+      responses: {
+        200: z.custom<typeof leaveRequests.$inferSelect & { employee: any, approvedBy: any, rejectedBy: any }>(),
+        404: errorSchemas.notFound,
+      }
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/employees/:employeeId/leave-requests',
+      input: insertLeaveRequestSchema.omit({ employeeId: true }),
+      responses: {
+        201: z.custom<typeof leaveRequests.$inferSelect>(),
+        400: errorSchemas.validation,
+      }
+    },
+    update: {
+      method: 'PATCH' as const,
+      path: '/api/leave-requests/:id',
+      input: insertLeaveRequestSchema.partial(),
+      responses: {
+        200: z.custom<typeof leaveRequests.$inferSelect>(),
+        404: errorSchemas.notFound,
+      }
+    },
+    approve: {
+      method: 'POST' as const,
+      path: '/api/leave-requests/:id/approve',
+      responses: {
+        200: z.custom<typeof leaveRequests.$inferSelect>(),
+        404: errorSchemas.notFound,
+      }
+    },
+    reject: {
+      method: 'POST' as const,
+      path: '/api/leave-requests/:id/reject',
+      input: z.object({
+        rejectionReason: z.string().optional()
+      }).optional(),
+      responses: {
+        200: z.custom<typeof leaveRequests.$inferSelect>(),
+        404: errorSchemas.notFound,
+      }
+    }
+  },
+
+  // === Audit ===
+  auditLogs: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/audit-logs',
+      responses: {
+        200: z.array(z.custom<typeof auditLogs.$inferSelect & { user: any }>()),
+      }
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/audit-logs/:id',
+      responses: {
+        200: z.custom<typeof auditLogs.$inferSelect & { user: any }>(),
+        404: errorSchemas.notFound,
+      }
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/audit-logs',
+      input: insertAuditLogSchema,
+      responses: {
+        201: z.custom<typeof auditLogs.$inferSelect>(),
+        400: errorSchemas.validation,
       }
     }
   }

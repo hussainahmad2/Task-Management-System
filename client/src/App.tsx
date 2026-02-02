@@ -35,6 +35,7 @@ import Timesheet from "@/pages/employee/Timesheet";
 import MyLeaveRequests from "@/pages/employee/MyLeaveRequests";
 import MyPayroll from "@/pages/employee/MyPayroll";
 import LearningModules from "@/pages/intern/LearningModules";
+import ContactAdmin from "@/pages/ContactAdmin";
 
 function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -66,6 +67,7 @@ function Router() {
     <Switch>
       <Route path="/" component={isAuthenticated ? Dashboard : Landing} />
       <Route path="/login" component={Login} />
+      <Route path="/contact-admin" component={ContactAdmin} />
       <Route path="/dashboard">
         <PrivateRoute component={Dashboard} />
       </Route>

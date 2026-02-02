@@ -1,11 +1,13 @@
 import { db } from "./db";
 import {
   organizations, departments, employees, tasks, timeLogs, performanceMetrics, permissions, rolePermissions,
+  invoices, leaveRequests, auditLogs,
   type Organization, type Department, type Employee, type Task, type TimeLog, type PerformanceMetric, type Permission, type RolePermission,
   type CreateTaskRequest, type UpdateTaskRequest, type CreateEmployeeRequest,
+  type CreateInvoiceRequest, type CreateLeaveRequestRequest, type CreateAuditLogRequest,
   users
 } from "@shared/schema";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, gte, lte } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
@@ -41,6 +43,30 @@ export interface IStorage {
   updateRolePermissions(role: string, permissionIds: number[]): Promise<void>;
   getAllPermissions(): Promise<Permission[]>;
   seedDefaultPermissions(): Promise<void>;
+
+  // Invoices
+  createInvoice(invoice: CreateInvoiceRequest & { orgId: number, createdById: number }): Promise<any>;
+  getInvoices(orgId: number): Promise<any[]>;
+  getInvoice(id: number): Promise<any>;
+  updateInvoice(id: number, updates: Partial<CreateInvoiceRequest>): Promise<any>;
+  deleteInvoice(id: number): Promise<void>;
+
+  // Leave Requests
+  createLeaveRequest(leaveRequest: CreateLeaveRequestRequest & { employeeId: number }): Promise<any>;
+  getLeaveRequests(employeeId: number): Promise<any[]>;
+  getLeaveRequest(id: number): Promise<any>;
+  updateLeaveRequest(id: number, updates: Partial<CreateLeaveRequestRequest>): Promise<any>;
+  requestManagerApproval(id: number, managerId: number): Promise<any>;
+  approveByManager(id: number, managerId: number, notes?: string): Promise<any>;
+  rejectByManager(id: number, managerId: number, notes?: string): Promise<any>;
+  approveByHR(id: number, hrId: number, notes?: string): Promise<any>;
+  rejectByHR(id: number, hrId: number, notes?: string): Promise<any>;
+  deleteLeaveRequest(id: number): Promise<void>;
+
+  // Audit Logs
+  createAuditLog(log: CreateAuditLogRequest): Promise<any>;
+  getAuditLogs(filters?: { userId?: string, tableName?: string, startDate?: Date, endDate?: Date }): Promise<any[]>;
+  getAuditLog(id: number): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -317,6 +343,209 @@ export class DatabaseStorage implements IStorage {
     await this.updateRolePermissions("Senior Employee", basicPerms.map(p => p.id));
 
     console.log("Permissions seeded!");
+  }
+
+  // === Invoices ===
+  async createInvoice(invoice: CreateInvoiceRequest & { orgId: number, createdById: number }): Promise<any> {
+    const [res] = await db.insert(invoices).values(invoice);
+    const [newInvoice] = await db.select().from(invoices).where(eq(invoices.id, res.insertId));
+    return newInvoice!;
+  }
+
+  async getInvoices(orgId: number): Promise<any[]> {
+    return await db.select().from(invoices).where(eq(invoices.orgId, orgId));
+  }
+
+  async getInvoice(id: number): Promise<any> {
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice;
+  }
+
+  async updateInvoice(id: number, updates: Partial<CreateInvoiceRequest>): Promise<any> {
+    await db.update(invoices)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(invoices.id, id));
+
+    const [updated] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return updated;
+  }
+
+  async deleteInvoice(id: number): Promise<void> {
+    await db.delete(invoices).where(eq(invoices.id, id));
+  }
+
+  // === Leave Requests ===
+  async createLeaveRequest(leaveRequest: CreateLeaveRequestRequest & { employeeId: number }): Promise<any> {
+    const [res] = await db.insert(leaveRequests).values(leaveRequest);
+    const [newLeaveRequest] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, res.insertId));
+    return newLeaveRequest!;
+  }
+
+  async getLeaveRequests(employeeId: number): Promise<any[]> {
+    return await db.select().from(leaveRequests).where(eq(leaveRequests.employeeId, employeeId));
+  }
+
+  async getLeaveRequest(id: number): Promise<any> {
+    const [leaveRequest] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, id));
+    return leaveRequest;
+  }
+
+  async updateLeaveRequest(id: number, updates: Partial<CreateLeaveRequestRequest>): Promise<any> {
+    await db.update(leaveRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(leaveRequests.id, id));
+
+    const [updated] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, id));
+    return updated;
+  }
+
+  async requestManagerApproval(id: number, managerId: number): Promise<any> {
+    await db.update(leaveRequests)
+      .set({ 
+        status: 'pending',
+        managerApprovalStatus: 'pending',
+        hrApprovalStatus: 'pending',
+        updatedAt: new Date()
+      })
+      .where(eq(leaveRequests.id, id));
+
+    const [updated] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, id));
+    return updated;
+  }
+
+  async approveByManager(id: number, managerId: number, notes?: string): Promise<any> {
+    await db.update(leaveRequests)
+      .set({ 
+        managerApprovalStatus: 'approved',
+        managerApprovedById: managerId,
+        managerApprovalDate: new Date(),
+        managerApprovalNotes: notes,
+        updatedAt: new Date()
+      })
+      .where(eq(leaveRequests.id, id));
+
+    // Check if HR also approved to set overall status to approved
+    const [updatedRequest] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, id));
+    
+    // If HR has also approved, then set the overall status to approved
+    if (updatedRequest?.hrApprovalStatus === 'approved') {
+      await db.update(leaveRequests)
+        .set({ 
+          status: 'approved',
+          approvedById: managerId, // Use the manager who initiated the final approval
+          approvalDate: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(leaveRequests.id, id));
+    }
+
+    const [finalUpdated] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, id));
+    return finalUpdated;
+  }
+
+  async rejectByManager(id: number, managerId: number, notes?: string): Promise<any> {
+    await db.update(leaveRequests)
+      .set({ 
+        managerApprovalStatus: 'rejected',
+        managerRejectedById: managerId,
+        managerRejectionDate: new Date(),
+        managerRejectionNotes: notes,
+        status: 'rejected', // Overall status becomes rejected
+        rejectionDate: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(leaveRequests.id, id));
+
+    const [updated] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, id));
+    return updated;
+  }
+
+  async approveByHR(id: number, hrId: number, notes?: string): Promise<any> {
+    await db.update(leaveRequests)
+      .set({ 
+        hrApprovalStatus: 'approved',
+        hrApprovedById: hrId,
+        hrApprovalDate: new Date(),
+        hrApprovalNotes: notes,
+        updatedAt: new Date()
+      })
+      .where(eq(leaveRequests.id, id));
+
+    // Check if manager also approved to set overall status to approved
+    const [updatedRequest] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, id));
+    
+    // If manager has also approved, then set the overall status to approved
+    if (updatedRequest?.managerApprovalStatus === 'approved') {
+      await db.update(leaveRequests)
+        .set({ 
+          status: 'approved',
+          approvedById: hrId, // Use the HR who initiated the final approval
+          approvalDate: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(leaveRequests.id, id));
+    }
+
+    const [finalUpdated] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, id));
+    return finalUpdated;
+  }
+
+  async rejectByHR(id: number, hrId: number, notes?: string): Promise<any> {
+    await db.update(leaveRequests)
+      .set({ 
+        hrApprovalStatus: 'rejected',
+        hrRejectedById: hrId,
+        hrRejectionDate: new Date(),
+        hrRejectionNotes: notes,
+        status: 'rejected', // Overall status becomes rejected
+        rejectionDate: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(leaveRequests.id, id));
+
+    const [updated] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, id));
+    return updated;
+  }
+
+  async deleteLeaveRequest(id: number): Promise<void> {
+    await db.delete(leaveRequests).where(eq(leaveRequests.id, id));
+  }
+
+  // === Audit Logs ===
+  async createAuditLog(log: CreateAuditLogRequest): Promise<any> {
+    const [res] = await db.insert(auditLogs).values(log);
+    const [newLog] = await db.select().from(auditLogs).where(eq(auditLogs.id, res.insertId));
+    return newLog!;
+  }
+
+  async getAuditLogs(filters?: { userId?: string, tableName?: string, startDate?: Date, endDate?: Date }): Promise<any[]> {
+    const conditions = [];
+    
+    if (filters?.userId) conditions.push(eq(auditLogs.userId, filters.userId));
+    if (filters?.tableName) conditions.push(eq(auditLogs.tableName, filters.tableName));
+    if (filters?.startDate || filters?.endDate) {
+      if (filters.startDate && filters.endDate) {
+        conditions.push(and(
+          gte(auditLogs.createdAt, filters.startDate),
+          lte(auditLogs.createdAt, filters.endDate)
+        ));
+      } else if (filters.startDate) {
+        conditions.push(gte(auditLogs.createdAt, filters.startDate));
+      } else if (filters.endDate) {
+        conditions.push(lte(auditLogs.createdAt, filters.endDate));
+      }
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    return await db.select().from(auditLogs)
+      .where(whereClause)
+      .orderBy(desc(auditLogs.createdAt));
+  }
+
+  async getAuditLog(id: number): Promise<any> {
+    const [log] = await db.select().from(auditLogs).where(eq(auditLogs.id, id));
+    return log;
   }
 }
 
