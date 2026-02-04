@@ -5,10 +5,13 @@ import { ChatHeader } from "@/components/messaging/ChatHeader";
 import { MessageList } from "@/components/messaging/MessageList";
 import { MessageInput } from "@/components/messaging/MessageInput";
 import { StartNewChatModal } from "@/components/messaging/StartNewChatModal";
+import { UserProfileSidebar } from "@/components/messaging/UserProfileSidebar";
+import { VoiceCall } from "@/components/messaging/VoiceCall";
+import { VideoCall } from "@/components/messaging/VideoCall";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect, useRef } from "react";
 import { MessageCircle } from "lucide-react";
-import { ChatRoom } from "@/types/messaging";
+import { ChatRoom, Call } from "@/types/messaging";
 
 interface User {
   id: string;
@@ -25,6 +28,9 @@ export default function MessagingPage() {
   const { state, actions } = useMessaging();
   const [activeChatRoom, setActiveChatRoom] = useState<ChatRoom | null>(null);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [showVoiceCall, setShowVoiceCall] = useState(false);
+  const [showVideoCall, setShowVideoCall] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const initializingRef = useRef(false);
@@ -197,6 +203,8 @@ export default function MessagingPage() {
                 chatRoom={activeChatRoom}
                 onBack={() => setActiveChatRoom(null)}
                 onDeleteChat={() => handleDeleteChat(activeChatRoom.id)}
+                onVoiceCall={() => setShowVoiceCall(true)}
+                onVideoCall={() => setShowVideoCall(true)}
                 className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
               />
               <MessageList
@@ -213,7 +221,10 @@ export default function MessagingPage() {
               />
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+            <div 
+              className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 cursor-pointer"
+              onClick={() => setShowUserProfile(true)}
+            >
               <div className="text-center p-8">
                 <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <MessageCircle className="w-10 h-10 text-primary-foreground" />
@@ -238,6 +249,55 @@ export default function MessagingPage() {
         users={users}
         isLoading={isLoadingUsers}
       />
+      
+      {/* User Profile Sidebar */}
+      <UserProfileSidebar
+        user={{
+          id: user?.id || '',
+          firstName: user?.firstName || '',
+          lastName: user?.lastName || '',
+          username: user?.username || '',
+          email: user?.email || '',
+          profileImageUrl: user?.profileImageUrl || undefined,
+          role: user?.role || ''
+        }}
+        isVisible={showUserProfile}
+        onClose={() => setShowUserProfile(false)}
+      />
+      
+      {/* Voice Call Component */}
+      {showVoiceCall && (
+        <VoiceCall
+          call={{
+            id: 'temp-voice-call',
+            chatRoomId: activeChatRoom?.id,
+            callerId: user?.id || 'current-user',
+            callType: 'voice',
+            status: 'ringing',
+            createdAt: new Date(),
+          }}
+          onEndCall={() => setShowVoiceCall(false)}
+          onAcceptCall={() => console.log('Voice call accepted')}
+          onRejectCall={() => setShowVoiceCall(false)}
+        />
+      )}
+      
+      {/* Video Call Component */}
+      {showVideoCall && (
+        <VideoCall
+          call={{
+            id: 'temp-video-call',
+            chatRoomId: activeChatRoom?.id,
+            callerId: user?.id || 'current-user',
+            callType: 'video',
+            status: 'ringing',
+            createdAt: new Date(),
+          }}
+          onEndCall={() => setShowVideoCall(false)}
+          onAcceptCall={() => console.log('Video call accepted')}
+          onRejectCall={() => setShowVideoCall(false)}
+        />
+      )}
     </Layout>
   );
 }

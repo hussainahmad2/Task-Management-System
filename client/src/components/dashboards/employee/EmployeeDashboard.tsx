@@ -4,24 +4,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { 
-    CheckSquare, Clock, Calendar, TrendingUp, 
-    Target, FileText, Bell, ArrowRight
+import {
+    CheckSquare, Clock, Calendar, TrendingUp,
+    Target, FileText, Bell, ArrowRight, Plus
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-
-const weeklyTaskData = [
-    { day: 'Mon', completed: 3, assigned: 5 },
-    { day: 'Tue', completed: 4, assigned: 6 },
-    { day: 'Wed', completed: 5, assigned: 5 },
-    { day: 'Thu', completed: 3, assigned: 4 },
-    { day: 'Fri', completed: 2, assigned: 3 },
-];
+import { Link } from "wouter";
+import { useState } from "react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
+import { CreateTaskForm } from "@/components/tasks/CreateTaskForm";
+import { startOfWeek, addDays, format, isSameDay, parseISO } from "date-fns";
 
 export function EmployeeDashboard() {
     const { data: orgs } = useOrganizations();
     const activeOrg = orgs?.[0];
     const { data: myTasks } = useTasks(activeOrg?.id);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
 
     const todoTasks = myTasks?.filter(t => t.status === 'todo').length || 0;
     const inProgressTasks = myTasks?.filter(t => t.status === 'in_progress').length || 0;
@@ -33,6 +31,28 @@ export function EmployeeDashboard() {
         .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
         .slice(0, 5) || [];
 
+    // Calculate weekly progress
+    const today = new Date();
+    const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
+    const weeklyTaskData = Array.from({ length: 5 }).map((_, index) => {
+        const day = addDays(startOfCurrentWeek, index);
+        const dayTasks = myTasks || [];
+
+        const assigned = dayTasks.filter(t =>
+            t.createdAt && isSameDay(new Date(t.createdAt), day)
+        ).length;
+
+        const completed = dayTasks.filter(t =>
+            t.status === 'completed' && t.updatedAt && isSameDay(new Date(t.updatedAt), day)
+        ).length;
+
+        return {
+            day: format(day, 'EEE'),
+            assigned,
+            completed
+        };
+    });
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header */}
@@ -41,9 +61,21 @@ export function EmployeeDashboard() {
                     <h2 className="text-3xl font-display font-bold tracking-tight">My Workspace</h2>
                     <p className="text-muted-foreground">Manage your daily tasks, track progress, and stay organized.</p>
                 </div>
-                <Button className="gap-2 shadow-lg shadow-primary/20">
-                    <CheckSquare className="w-4 h-4" /> New Task
-                </Button>
+
+                <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+                    <SheetTrigger asChild>
+                        <Button className="gap-2 shadow-lg shadow-primary/20">
+                            <Plus className="w-4 h-4" /> New Task
+                        </Button>
+                    </SheetTrigger>
+                    <SheetContent className="sm:max-w-xl overflow-y-auto">
+                        <SheetHeader className="mb-6">
+                            <SheetTitle>Create New Task</SheetTitle>
+                            <SheetDescription>Fill in the details for the new project task.</SheetDescription>
+                        </SheetHeader>
+                        <CreateTaskForm onSuccess={() => setIsSheetOpen(false)} onCancel={() => setIsSheetOpen(false)} />
+                    </SheetContent>
+                </Sheet>
             </div>
 
             {/* Key Metrics */}
@@ -115,10 +147,13 @@ export function EmployeeDashboard() {
                                 <BarChart data={weeklyTaskData}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                     <XAxis dataKey="day" />
-                                    <YAxis />
-                                    <Tooltip />
-                                    <Bar dataKey="assigned" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                    <YAxis allowDecimals={false} />
+                                    <Tooltip
+                                        cursor={{ fill: 'transparent' }}
+                                        contentStyle={{ borderRadius: '8px' }}
+                                    />
+                                    <Bar dataKey="assigned" name="Assigned" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="completed" name="Completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -145,15 +180,15 @@ export function EmployeeDashboard() {
                                                 <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                                                     <Calendar className="w-3 h-3" />
                                                     <span>{new Date(task.dueDate!).toLocaleDateString()}</span>
-                                                    <Badge variant="outline" className="text-xs">
+                                                    <Badge variant="outline" className="text-xs capitalize">
                                                         {task.priority}
                                                     </Badge>
                                                 </div>
                                             </div>
-                                            <Badge className={daysUntilDue <= 1 ? "bg-red-100 text-red-700" : 
-                                                              daysUntilDue <= 3 ? "bg-orange-100 text-orange-700" : 
-                                                              "bg-blue-100 text-blue-700"}>
-                                                {daysUntilDue === 0 ? "Today" : daysUntilDue === 1 ? "Tomorrow" : `${daysUntilDue} days`}
+                                            <Badge className={daysUntilDue <= 1 ? "bg-red-100 text-red-700" :
+                                                daysUntilDue <= 3 ? "bg-orange-100 text-orange-700" :
+                                                    "bg-blue-100 text-blue-700"}>
+                                                {daysUntilDue <= 0 ? "Today" : daysUntilDue === 1 ? "Tomorrow" : `${daysUntilDue} days`}
                                             </Badge>
                                         </div>
                                     );
@@ -165,9 +200,11 @@ export function EmployeeDashboard() {
                                 </div>
                             )}
                         </div>
-                        <Button variant="outline" className="w-full mt-4 gap-2">
-                            <ArrowRight className="w-4 h-4" /> View All Tasks
-                        </Button>
+                        <Link href="/tasks">
+                            <Button variant="outline" className="w-full mt-4 gap-2">
+                                <ArrowRight className="w-4 h-4" /> View All Tasks
+                            </Button>
+                        </Link>
                     </CardContent>
                 </Card>
             </div>
@@ -186,21 +223,21 @@ export function EmployeeDashboard() {
                                 <span className="font-medium">To Do</span>
                                 <span className="text-muted-foreground">{todoTasks} tasks</span>
                             </div>
-                            <Progress value={(todoTasks / totalTasks) * 100} className="h-2" />
+                            <Progress value={totalTasks > 0 ? (todoTasks / totalTasks) * 100 : 0} className="h-2" />
                         </div>
                         <div className="space-y-2">
                             <div className="flex justify-between text-sm">
                                 <span className="font-medium">In Progress</span>
                                 <span className="text-muted-foreground">{inProgressTasks} tasks</span>
                             </div>
-                            <Progress value={(inProgressTasks / totalTasks) * 100} className="h-2" />
+                            <Progress value={totalTasks > 0 ? (inProgressTasks / totalTasks) * 100 : 0} className="h-2" />
                         </div>
                         <div className="space-y-2">
                             <div className="flex justify-between text-sm">
                                 <span className="font-medium">Completed</span>
                                 <span className="text-muted-foreground">{completedTasks} tasks</span>
                             </div>
-                            <Progress value={(completedTasks / totalTasks) * 100} className="h-2" />
+                            <Progress value={totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0} className="h-2" />
                         </div>
                     </CardContent>
                 </Card>
@@ -212,18 +249,26 @@ export function EmployeeDashboard() {
                         <CardDescription>Common tasks and shortcuts</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        <Button variant="outline" className="w-full justify-start gap-2">
-                            <FileText className="w-4 h-4" /> Submit Timesheet
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start gap-2">
-                            <Calendar className="w-4 h-4" /> Request Leave
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start gap-2">
-                            <Bell className="w-4 h-4" /> View Notifications
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start gap-2">
-                            <Target className="w-4 h-4" /> Set Goals
-                        </Button>
+                        <Link href="/employee/timesheet">
+                            <Button variant="outline" className="w-full justify-start gap-2 mb-3">
+                                <FileText className="w-4 h-4" /> Submit Timesheet
+                            </Button>
+                        </Link>
+                        <Link href="/employee/leaves">
+                            <Button variant="outline" className="w-full justify-start gap-2 mb-3">
+                                <Calendar className="w-4 h-4" /> Request Leave
+                            </Button>
+                        </Link>
+                        <Link href="/messaging">
+                            <Button variant="outline" className="w-full justify-start gap-2 mb-3">
+                                <Bell className="w-4 h-4" /> View Notifications
+                            </Button>
+                        </Link>
+                        <Link href="/tasks">
+                            <Button variant="outline" className="w-full justify-start gap-2">
+                                <Target className="w-4 h-4" /> Set Goals
+                            </Button>
+                        </Link>
                     </CardContent>
                 </Card>
             </div>

@@ -77,7 +77,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
+    <div className="fixed inset-0 bg-black dark:bg-gray-900 z-50 flex flex-col">
       {/* Remote video */}
       <div className="flex-1 relative">
         {remoteStream ? (

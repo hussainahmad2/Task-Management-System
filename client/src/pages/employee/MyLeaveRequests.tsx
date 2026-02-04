@@ -6,13 +6,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { 
-    Calendar, Plus, Clock, CheckCircle, XCircle, 
+import {
+    Calendar, Plus, Clock, CheckCircle, XCircle,
     AlertCircle, TrendingUp, FileText
 } from "lucide-react";
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { useToast } from "@/hooks/use-toast";
 
 const leaveBalances = [
     { type: "Vacation", total: 20, used: 5, remaining: 15 },
@@ -20,18 +21,35 @@ const leaveBalances = [
     { type: "Personal", total: 5, used: 1, remaining: 4 },
 ];
 
-const myLeaveRequests = [
+const initialLeaveRequests = [
     { id: 1, type: "Vacation", startDate: "2024-02-01", endDate: "2024-02-05", days: 5, status: "Pending", reason: "Family vacation" },
     { id: 2, type: "Sick Leave", startDate: "2024-01-15", endDate: "2024-01-15", days: 1, status: "Approved", reason: "Medical appointment" },
     { id: 3, type: "Personal", startDate: "2024-01-20", endDate: "2024-01-20", days: 1, status: "Rejected", reason: "Personal matters" },
 ];
 
 export default function MyLeaveRequests() {
+    const { toast } = useToast();
+    const [requests, setRequests] = useState(initialLeaveRequests);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [leaveType, setLeaveType] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [reason, setReason] = useState("");
+
+    const handleCancel = (id: number) => {
+        setRequests(requests.filter(r => r.id !== id));
+        toast({
+            title: "Request Cancelled",
+            description: "Your leave request has been cancelled.",
+        });
+    };
+
+    const handleView = (request: any) => {
+        toast({
+            title: "Request Details",
+            description: `${request.type} request for ${request.days} days. Reason: ${request.reason}`,
+        });
+    };
 
     const calculateDays = () => {
         if (!startDate || !endDate) return 0;
@@ -97,17 +115,17 @@ export default function MyLeaveRequests() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Start Date</Label>
-                                    <Input 
-                                        type="date" 
-                                        value={startDate} 
+                                    <Input
+                                        type="date"
+                                        value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>End Date</Label>
-                                    <Input 
-                                        type="date" 
-                                        value={endDate} 
+                                    <Input
+                                        type="date"
+                                        value={endDate}
                                         onChange={(e) => setEndDate(e.target.value)}
                                     />
                                 </div>
@@ -117,8 +135,8 @@ export default function MyLeaveRequests() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Reason</Label>
-                                <Textarea 
-                                    value={reason} 
+                                <Textarea
+                                    value={reason}
                                     onChange={(e) => setReason(e.target.value)}
                                     placeholder="Please provide a reason for your leave request"
                                 />
@@ -159,8 +177,8 @@ export default function MyLeaveRequests() {
                                     <span className="text-green-600">{balance.remaining} days</span>
                                 </div>
                                 <div className="w-full bg-muted rounded-full h-2 mt-2">
-                                    <div 
-                                        className="bg-primary h-2 rounded-full" 
+                                    <div
+                                        className="bg-primary h-2 rounded-full"
                                         style={{ width: `${(balance.used / balance.total) * 100}%` }}
                                     />
                                 </div>
@@ -190,7 +208,7 @@ export default function MyLeaveRequests() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {myLeaveRequests.map((request) => (
+                            {requests.map((request) => (
                                 <TableRow key={request.id}>
                                     <TableCell className="font-medium">{request.type}</TableCell>
                                     <TableCell>{new Date(request.startDate).toLocaleDateString()}</TableCell>
@@ -206,9 +224,16 @@ export default function MyLeaveRequests() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        <Button size="sm" variant="ghost">
-                                            <FileText className="w-4 h-4" />
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            <Button size="sm" variant="ghost" onClick={() => handleView(request)}>
+                                                <FileText className="w-4 h-4" />
+                                            </Button>
+                                            {request.status === "Pending" && (
+                                                <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600" onClick={() => handleCancel(request.id)}>
+                                                    <XCircle className="w-4 h-4" />
+                                                </Button>
+                                            )}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}

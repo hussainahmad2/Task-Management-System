@@ -5,10 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-    Clock, Calendar, CheckCircle, Send, 
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import {
+    Clock, Calendar as CalendarIcon, CheckCircle, Send,
     Plus, Trash2, FileText, TrendingUp
 } from "lucide-react";
+import { format } from "date-fns";
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTasks } from "@/hooks/use-tasks";
@@ -85,9 +88,30 @@ export default function Timesheet() {
                     <p className="text-muted-foreground">Track your work hours and submit weekly timesheets.</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" className="gap-2">
-                        <Calendar className="w-4 h-4" /> Select Week
-                    </Button>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="gap-2 w-[240px] pl-3 text-left font-normal">
+                                <CalendarIcon className="w-4 h-4 opacity-50" />
+                                {currentWeek ? `Week of ${format(new Date(currentWeek), "LLL dd, y")}` : "Select week"}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                            <CalendarComponent
+                                mode="single"
+                                selected={new Date(currentWeek)}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        const day = date.getDay();
+                                        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+                                        const monday = new Date(date.setDate(diff));
+                                        setCurrentWeek(monday.toISOString().split('T')[0]);
+                                    }
+                                }}
+                                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
                     {status === "draft" && (
                         <Button className="gap-2 shadow-lg shadow-primary/20" onClick={submitTimesheet}>
                             <Send className="w-4 h-4" /> Submit Timesheet
@@ -144,9 +168,9 @@ export default function Timesheet() {
                             <CardTitle>Week of {new Date(currentWeek).toLocaleDateString()}</CardTitle>
                             <CardDescription>Enter your work hours for each day</CardDescription>
                         </div>
-                        <Badge className={status === "approved" ? "bg-green-100 text-green-700" : 
-                                         status === "submitted" ? "bg-blue-100 text-blue-700" : 
-                                         "bg-gray-100 text-gray-700"}>
+                        <Badge className={status === "approved" ? "bg-green-100 text-green-700" :
+                            status === "submitted" ? "bg-blue-100 text-blue-700" :
+                                "bg-gray-100 text-gray-700"}>
                             {status === "approved" ? "Approved" : status === "submitted" ? "Submitted" : "Draft"}
                         </Badge>
                     </div>
@@ -157,17 +181,17 @@ export default function Timesheet() {
                             <div key={entry.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg">
                                 <div>
                                     <Label>Date</Label>
-                                    <Input 
-                                        type="date" 
-                                        value={entry.date} 
+                                    <Input
+                                        type="date"
+                                        value={entry.date}
                                         onChange={(e) => updateEntry(entry.id, "date", e.target.value)}
                                         disabled={status !== "draft"}
                                     />
                                 </div>
                                 <div>
                                     <Label>Task</Label>
-                                    <Select 
-                                        value={entry.taskId?.toString() || ""} 
+                                    <Select
+                                        value={entry.taskId?.toString() || ""}
                                         onValueChange={(value) => {
                                             const task = tasks?.find(t => t.id === parseInt(value));
                                             updateEntry(entry.id, "taskId", task?.id);
@@ -189,20 +213,20 @@ export default function Timesheet() {
                                 </div>
                                 <div>
                                     <Label>Hours</Label>
-                                    <Input 
-                                        type="number" 
-                                        step="0.25" 
-                                        min="0" 
+                                    <Input
+                                        type="number"
+                                        step="0.25"
+                                        min="0"
                                         max="24"
-                                        value={entry.hours} 
+                                        value={entry.hours}
                                         onChange={(e) => updateEntry(entry.id, "hours", parseFloat(e.target.value) || 0)}
                                         disabled={status !== "draft"}
                                     />
                                 </div>
                                 <div>
                                     <Label>Description</Label>
-                                    <Textarea 
-                                        value={entry.description} 
+                                    <Textarea
+                                        value={entry.description}
                                         onChange={(e) => updateEntry(entry.id, "description", e.target.value)}
                                         placeholder="What did you work on?"
                                         disabled={status !== "draft"}
@@ -212,8 +236,8 @@ export default function Timesheet() {
                                 <div className="flex items-end gap-2">
                                     <div className="flex-1">
                                         <Label className="flex items-center gap-2">
-                                            <input 
-                                                type="checkbox" 
+                                            <input
+                                                type="checkbox"
                                                 checked={entry.isOvertime}
                                                 onChange={(e) => updateEntry(entry.id, "isOvertime", e.target.checked)}
                                                 disabled={status !== "draft"}
@@ -223,9 +247,9 @@ export default function Timesheet() {
                                         </Label>
                                     </div>
                                     {status === "draft" && (
-                                        <Button 
-                                            size="sm" 
-                                            variant="ghost" 
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
                                             onClick={() => removeEntry(entry.id)}
                                             className="text-red-500"
                                         >

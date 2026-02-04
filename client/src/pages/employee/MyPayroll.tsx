@@ -2,13 +2,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-    DollarSign, Download, FileText, Calendar, 
+import {
+    DollarSign, Download, FileText, Calendar,
     TrendingUp, Receipt, CreditCard
 } from "lucide-react";
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { useToast } from "@/hooks/use-toast";
 
 const payrollHistory = [
     { period: "January 2024", grossPay: 8500, deductions: 1200, netPay: 7300, status: "Paid", payDate: "2024-01-31" },
@@ -41,7 +42,16 @@ const currentPayroll = {
 };
 
 export default function MyPayroll() {
+    const { toast } = useToast();
     const [selectedPeriod, setSelectedPeriod] = useState("January 2024");
+
+    const handleDownload = (period: string) => {
+        toast({
+            title: "Downloading Payslip",
+            description: `Generating payslip for ${period}...`,
+        });
+        // In real app, trigger file download
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -50,7 +60,7 @@ export default function MyPayroll() {
                     <h2 className="text-3xl font-display font-bold tracking-tight">My Payroll</h2>
                     <p className="text-muted-foreground">View your salary details and payroll history.</p>
                 </div>
-                <Button variant="outline" className="gap-2">
+                <Button variant="outline" className="gap-2" onClick={() => handleDownload(selectedPeriod)}>
                     <Download className="w-4 h-4" /> Download Payslip
                 </Button>
             </div>
@@ -176,7 +186,7 @@ export default function MyPayroll() {
                                     </TableCell>
                                     <TableCell>{new Date(payroll.payDate).toLocaleDateString()}</TableCell>
                                     <TableCell>
-                                        <Button size="sm" variant="ghost">
+                                        <Button size="sm" variant="ghost" onClick={() => handleDownload(payroll.period)}>
                                             <Download className="w-4 h-4" />
                                         </Button>
                                     </TableCell>

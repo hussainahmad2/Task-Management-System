@@ -26,15 +26,17 @@ import {
   Sun,
   Moon,
   MessageCircle,
-  Phone,
-  Video,
-  Mail,
-  User,
-  Contact,
-  Send,
-  Smile,
-  Sticker
+  User as UserIcon,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useOrganizations } from "@/hooks/use-organizations";
@@ -54,10 +56,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMessagingOpen, setIsMessagingOpen] = useState(false);
-  
+
   const { state, actions } = useMessaging();
   const [activeChatRoom, setActiveChatRoom] = useState<ChatRoom | null>(null);
-  
+
   // Use real data from context
   const chatRooms = state.chatRooms;
   const messages = state.messages[activeChatRoom?.id || ''] || [];
@@ -75,7 +77,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isCTO = userRole === "CTO";
   const isEmployee = userRole === "Senior Employee" || userRole === "Junior Employee";
   const isIntern = userRole === "Intern";
-  
+
   // HR-specific navigation items
   const hrNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -175,7 +177,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const handleSendMessage = async (content: string) => {
     if (!activeChatRoom || !user?.id) return;
-    
+
     try {
       await actions.sendMessage(activeChatRoom.id, content);
     } catch (error) {
@@ -185,7 +187,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const handleSendSticker = async (stickerId: string) => {
     if (!activeChatRoom || !user?.id) return;
-    
+
     try {
       const stickerUrl = `/api/stickers/${stickerId}`;
       await actions.sendMessage(activeChatRoom.id, '', 'sticker', stickerUrl);
@@ -196,7 +198,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const handleSendEmoji = async (emoji: string) => {
     if (!activeChatRoom || !user?.id) return;
-    
+
     try {
       await actions.sendMessage(activeChatRoom.id, emoji, 'text');
     } catch (error) {
@@ -206,11 +208,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   // Set current user when available
   const setCurrentUserRef = React.useRef(actions.setCurrentUser);
-  
+
   React.useEffect(() => {
     setCurrentUserRef.current = actions.setCurrentUser;
   }, [actions.setCurrentUser]);
-  
+
   React.useEffect(() => {
     if (user?.id) {
       setCurrentUserRef.current(user.id);
@@ -300,91 +302,73 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
             )}
           </nav>
-
-          <div className="pt-4 border-t border-border">
-            <div className="flex items-center gap-3 mb-4 px-3">
-              <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-secondary-foreground overflow-hidden">
-                {user?.profileImageUrl ? (
-                  <img src={user.profileImageUrl} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  user?.firstName?.[0] || "U"
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{user?.firstName} {user?.lastName}</p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  const newTheme = theme === "dark" ? "light" : "dark";
-                  setTheme(newTheme);
-                }}
-              >
-                {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                {theme === "dark" ? "Light Mode" : "Dark Mode"}
-              </Button>
-              
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2 text-muted-foreground hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-200 dark:hover:border-purple-800"
-                onClick={() => setIsMessagingOpen(!isMessagingOpen)}
-              >
-                <MessageCircle className="w-4 h-4" />
-                Messages
-                {state.unreadCount > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {state.unreadCount > 99 ? '99+' : state.unreadCount}
-                  </span>
-                )}
-              </Button>
-                      
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/20"
-                onClick={() => logout()}
-              >
-                <LogOut className="w-4 h-4" />
-                Sign Out
-              </Button>
-            </div>
-          </div>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 min-w-0 flex flex-col">
-        {/* Mobile Header */}
-        <header className="lg:hidden h-16 bg-card border-b border-border flex items-center px-4 justify-between sticky top-0 z-30">
-          <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(true)}>
-            <Menu className="w-5 h-5" />
-          </Button>
-          <span className="font-display font-bold text-lg">Enterprise</span>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => {
-              const newTheme = theme === "dark" ? "light" : "dark";
-              setTheme(newTheme);
-            }}
-          >
-            {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </Button>
+        {/* Header */}
+        <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 md:px-8 sticky top-0 z-30">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setIsMobileOpen(true)}>
+              <Menu className="w-5 h-5" />
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                  <Avatar className="h-10 w-10 border-2 border-transparent hover:border-primary transition-all">
+                    <AvatarImage src={user?.profileImageUrl || undefined} alt="Profile" className="object-cover" />
+                    <AvatarFallback>{user?.firstName?.[0] || "U"}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user?.firstName} {user?.lastName}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user?.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <Link href={`/employees/${user?.id}`}>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <UserIcon className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                </Link>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => logout()} className="text-destructive focus:text-destructive cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
 
         <div className="flex-1 p-4 md:p-8 overflow-y-auto relative">
           <div className="max-w-7xl mx-auto w-full">
             {children}
           </div>
-          
+
           {/* Messaging Panel Overlay */}
           {isMessagingOpen && (
             <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex" onClick={() => setIsMessagingOpen(false)}>
-              <div 
+              <div
                 className="ml-auto w-full max-w-4xl h-full bg-gradient-to-br from-white via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 shadow-2xl border-l border-border"
                 onClick={e => e.stopPropagation()}
               >
@@ -395,11 +379,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       chatRooms={chatRooms}
                       activeChatRoomId={activeChatRoom?.id}
                       onSelectChatRoom={handleSelectChatRoom}
-                      onCreateChat={() => {}}
+                      onCreateChat={() => { }}
                       className="h-full"
                     />
                   </div>
-                  
+
                   {/* Chat Content */}
                   <div className="flex-1 flex flex-col">
                     {activeChatRoom ? (

@@ -51,7 +51,7 @@ export const VoiceCall: React.FC<VoiceCallProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black dark:bg-gray-900 z-50 flex flex-col items-center justify-center p-4">
       <div className="text-center text-white">
         <h2 className="text-2xl font-bold mb-2">
           {call.callType === 'voice' ? 'Voice Call' : 'Video Call'}
